@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gate Layout Tool</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <h1>Gate Layout Tool</h1>
+
+    <!-- Form to input dimensions -->
+    <form id="dimension-form">
+        <label for="x-dimension">X Dimension:</label>
+        <input type="number" id="x-dimension" name="x-dimension" required>
+        <label for="y-dimension">Y Dimension:</label>
+        <input type="number" id="y-dimension" name="y-dimension" required>
+        <button type="submit">Create Layout</button>
+    </form>
+
+    <div id="grid-container"></div>
+
+    <!-- Modal for selecting gate -->
+    <div id="gate-modal" style="display:none;">
+        <h2>Select Gate</h2>
+        <label for="gate-type">Gate Type:</label>
+        <select id="gate-type">
+            <option value="pi">PI</option>
+            <option value="and">AND</option>
+            <option value="buf">BUF</option>
+        </select>
+        <div id="gate-parameters">
+            <!-- Inputs for gate parameters like PI name or incoming signals will go here -->
+        </div>
+        <button id="place-gate-button">Place Gate</button>
+        <button id="cancel-gate-button">Cancel</button>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

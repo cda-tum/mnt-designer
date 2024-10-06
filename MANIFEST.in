@@ -1,0 +1,2 @@
+include src/mnt/designer/templates/*
+include src/mnt/designer/static/*
