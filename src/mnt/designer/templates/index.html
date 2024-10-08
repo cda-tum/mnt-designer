@@ -29,18 +29,40 @@
                 <button type="submit" class="btn btn-primary mb-3">Create Layout</button>
             </div>
         </form>
+        <!-- Import/Export Buttons -->
+        <div class="btn-group mb-3 d-flex justify-content-center" role="group">
+            <button type="button" id="import-button" class="btn btn-outline-primary"><i class="fas fa-file-import"></i> Import Layout</button>
+            <button type="button" id="export-button" class="btn btn-outline-primary"><i class="fas fa-file-export"></i> Export Layout</button>
+        </div>
+        <!-- Hidden File Input for Import -->
+        <input type="file" id="import-file-input" accept=".xml" style="display: none;">
         <!-- Gate Selection -->
-        <div id="gate-selection" class="btn-group mb-3 d-flex justify-content-center" role="group">
-            <button type="button" id="pi-button" class="btn btn-outline-secondary"><i class="fas fa-play"></i> PI</button>
-            <button type="button" id="buf-button" class="btn btn-outline-secondary"><i class="fas fa-long-arrow-alt-right"></i> BUF</button>
-            <button type="button" id="and-button" class="btn btn-outline-secondary"><i class="fas fa-plus"></i> AND</button>
-            <button type="button" id="connect-button" class="btn btn-outline-secondary"><i class="fas fa-link"></i> Connect Gates</button>
-            <button type="button" id="delete-button" class="btn btn-outline-danger"><i class="fas fa-trash-alt"></i> Delete Gate</button>
-            <button type="button" id="cancel-button" class="btn btn-outline-warning"><i class="fas fa-times"></i> Cancel</button>
+        <div id="gate-selection" class="btn-group mb-3 d-flex justify-content-center flex-wrap" role="group">
+            <button type="button" id="pi-button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Place a Primary Input gate"><i class="fas fa-play"></i> PI</button>
+            <button type="button" id="po-button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Place a Primary Output gate"><i class="fas fa-stop"></i> PO</button>
+            <button type="button" id="inv-button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Place an Inverter gate"><i class="fas fa-not-equal"></i> INV</button>
+            <button type="button" id="buf-button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Place a Buffer gate"><i class="fas fa-long-arrow-alt-right"></i> BUF</button>
+            <button type="button" id="and-button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Place an AND gate"><i class="fas fa-plus"></i> AND</button>
+            <button type="button" id="or-button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Place an OR gate"><i class="fas fa-plus-circle"></i> OR</button>
+            <button type="button" id="nor-button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Place a NOR gate"><i class="fas fa-ban"></i> NOR</button>
+            <button type="button" id="xor-button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Place an XOR gate"><i class="fas fa-times-circle"></i> XOR</button>
+            <button type="button" id="xnor-button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Place an XNOR gate"><i class="fas fa-times"></i> XNOR</button>
+            <button type="button" id="connect-button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Connect gates"><i class="fas fa-link"></i> Connect Gates</button>
+            <button type="button" id="delete-button" class="btn btn-outline-danger" data-bs-toggle="tooltip" data-bs-placement="top" title="Delete a gate"><i class="fas fa-trash-alt"></i> Delete Gate</button>
+            <button type="button" id="cancel-button" class="btn btn-outline-warning" data-bs-toggle="tooltip" data-bs-placement="top" title="Cancel current action"><i class="fas fa-times"></i> Cancel</button>
+        </div>
+        <!-- Design Rule Check Button -->
+        <div class="mb-3 d-flex justify-content-center">
+            <button type="button" id="check-rules-button" class="btn btn-outline-success"><i class="fas fa-check-circle"></i> Check Design Rules</button>
         </div>
         <!-- Message Area -->
         <div id="message-area" class="alert alert-info text-center" role="alert">
             Please create a layout to get started.
+        </div>
+        <!-- Violations Area -->
+        <div id="violations-area" class="alert alert-warning d-none" role="alert">
+            <h5>Design Rule Violations:</h5>
+            <ul id="violations-list"></ul>
         </div>
         <!-- Cytoscape Container -->
         <div id="cy"></div>
