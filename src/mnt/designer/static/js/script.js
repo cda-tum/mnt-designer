@@ -246,18 +246,20 @@ $(document).ready(() => {
         `;
     }
 
-    // Handle PI gate placement
+    // In handlePlaceGate function, check for PI gate
     function handlePlaceGate() {
         if (selectedNode.data('hasGate')) {
             updateMessageArea('Cannot place a gate on a non-empty tile.', 'danger');
             selectedNode = null;
             return;
         }
-
-        const x = selectedNode.data('x');
-        const y = selectedNode.data('y');
-
-        placeGate(x, y, 'pi', {});
+        if (selectedGateType !== 'pi') {
+            updateMessageArea('Invalid action. Please select a PI gate.', 'danger');
+            selectedNode = null;
+            return;
+        }
+        // Proceed to place PI gate
+        placeGate(selectedNode.data('x'), selectedNode.data('y'), 'pi', {});
         updateMessageArea('PI gate placed successfully.', 'success');
         selectedNode = null;
     }
@@ -299,6 +301,17 @@ $(document).ready(() => {
             updateMessageArea('Invalid tile number sequence. Only transitions 1→2, 2→3, 3→4, and 4→1 are allowed.', 'danger');
             return;
         }
+
+        // Check if the target node already has maximum inputs
+        const existingInEdges = selectedNode.connectedEdges().filter(edge => edge.data('target') === selectedNode.id());
+        const maxInputs = 1;
+
+        if (existingInEdges.length >= maxInputs) {
+            updateMessageArea(`Gate at (${selectedNode.data('x')}, ${selectedNode.data('y')}) cannot have more than ${maxInputs} incoming signals.`, 'danger');
+            selectedNode = null;
+            return;
+        }
+
         selectedSourceNode = node;
         // Highlight the selected source node
         selectedSourceNode.addClass('highlighted');
@@ -325,6 +338,9 @@ $(document).ready(() => {
         // Remove highlight from source node
         selectedSourceNode.removeClass('highlighted');
 
+        // Update gate labels
+        updateGateLabels();
+
         updateMessageArea(`${selectedGateType.toUpperCase()} gate placed successfully.`, 'success');
 
         selectedNode = null;
@@ -337,34 +353,36 @@ $(document).ready(() => {
             updateMessageArea('The incoming signal node must have a gate.', 'danger');
             return;
         }
+
+        // Check if the target node already has maximum inputs
+        const existingInEdges = selectedNode.connectedEdges().filter(edge => edge.data('target') === selectedNode.id());
+        const maxInputs = 2;
+
+        if (existingInEdges.length >= maxInputs) {
+            updateMessageArea(`Gate at (${selectedNode.data('x')}, ${selectedNode.data('y')}) cannot have more than ${maxInputs} incoming signals.`, 'danger');
+            selectedNode = null;
+            if (selectedSourceNode) selectedSourceNode.removeClass('highlighted');
+            selectedSourceNode = null;
+            return;
+        }
+
+        if (!areNodesAdjacentCardinal(selectedNode, node)) {
+            updateMessageArea('Please select an adjacent node (left, right, top, bottom) as the incoming signal.', 'danger');
+            return;
+        }
+        if (!isValidTileTransition(node, selectedNode)) {
+            updateMessageArea('Invalid tile number sequence. Only transitions 1→2, 2→3, 3→4, and 4→1 are allowed.', 'danger');
+            return;
+        }
+
         if (!selectedSourceNode) {
-            if (!areNodesAdjacentCardinal(selectedNode, node)) {
-                updateMessageArea('Please select an adjacent node (left, right, top, bottom) as the first incoming signal.', 'danger');
-                return;
-            }
-            if (!isValidTileTransition(node, selectedNode)) {
-                updateMessageArea('Invalid tile number sequence. Only transitions 1→2, 2→3, 3→4, and 4→1 are allowed.', 'danger');
-                return;
-            }
             selectedSourceNode = node;
             // Highlight the first selected source node
             selectedSourceNode.addClass('highlighted');
             updateMessageArea('Now select the second adjacent incoming signal node.', 'info');
         } else if (!selectedSourceNode2) {
-            if (!node.data('hasGate')) {
-                updateMessageArea('The incoming signal node must have a gate.', 'danger');
-                return;
-            }
-            if (!areNodesAdjacentCardinal(selectedNode, node)) {
-                updateMessageArea('Please select an adjacent node (left, right, top, bottom) as the second incoming signal.', 'danger');
-                return;
-            }
             if (node.id() === selectedSourceNode.id()) {
                 updateMessageArea('The second incoming signal cannot be the same as the first.', 'danger');
-                return;
-            }
-            if (!isValidTileTransition(node, selectedNode)) {
-                updateMessageArea('Invalid tile number sequence. Only transitions 1→2, 2→3, 3→4, and 4→1 are allowed.', 'danger');
                 return;
             }
             selectedSourceNode2 = node;
@@ -405,6 +423,9 @@ $(document).ready(() => {
         // Remove highlights from source nodes
         selectedSourceNode.removeClass('highlighted');
         selectedSourceNode2.removeClass('highlighted');
+
+        // Update gate labels
+        updateGateLabels();
 
         updateMessageArea(`${selectedGateType.toUpperCase()} gate placed successfully.`, 'success');
 
@@ -513,7 +534,23 @@ $(document).ready(() => {
         });
     }
 
-    // Delete gate
+    // Update gate labels and colors based on the number of outgoing connections
+    function updateGateLabels() {
+        cy.nodes().forEach(node => {
+            const gateType = node.data('label').toLowerCase();
+            if (gateType === 'buf' || gateType === 'fanout') {
+                const outEdges = node.connectedEdges().filter(edge => edge.data('source') === node.id());
+                if (outEdges.length === 2) {
+                    node.data('label', 'FANOUT');
+                    node.style('background-color', 'orange');
+                } else {
+                    node.data('label', 'BUF');
+                    node.style('background-color', 'palegoldenrod');
+                }
+            }
+        });
+    }
+
     function deleteGate(node) {
         const x = node.data('x');
         const y = node.data('y');
@@ -525,25 +562,17 @@ $(document).ready(() => {
             data: JSON.stringify({ x: x, y: y }),
             success: (data) => {
                 if (data.success) {
+                    // Remove connected edges
+                    const connectedEdges = node.connectedEdges();
+                    cy.remove(connectedEdges);
+
                     // Reset node label and style
                     node.data('label', '');
                     node.data('hasGate', false);
                     node.style('background-color', node.data('color'));
 
-                    // Remove connected edges
-                    const connectedEdges = node.connectedEdges();
-                    cy.remove(connectedEdges);
-
-                    // Ensure tile number remains visible
-                    const tileNumber = node.data('tileNumber');
-                    node.style({
-                        'background-image': `data:image/svg+xml;utf8,${encodeURIComponent(createTileNumberSVG(tileNumber))}`,
-                        'background-width': '100%',
-                        'background-height': '100%',
-                        'background-position': 'bottom right',
-                        'background-repeat': 'no-repeat',
-                        'background-clip': 'none',
-                    });
+                    // Update gate labels after deletion
+                    updateGateLabels();
 
                     updateMessageArea('Gate deleted successfully.', 'success');
                 } else {
@@ -601,6 +630,27 @@ $(document).ready(() => {
         const targetX = selectedNode.data('x');
         const targetY = selectedNode.data('y');
 
+        // Check if the source node can have more outgoing connections
+        const existingOutEdges = selectedSourceNode.connectedEdges().filter(edge => edge.data('source') === selectedSourceNode.id());
+        let maxFanouts = 1;
+        const gateType = selectedSourceNode.data('label').toLowerCase();
+
+        if (gateType === 'po') {
+            maxFanouts = 0;
+        } else if (gateType === 'buf' || gateType === 'fanout') {
+            maxFanouts = 2;
+        }
+
+        if (existingOutEdges.length >= maxFanouts) {
+            updateMessageArea(`Gate at (${sourceX}, ${sourceY}) cannot have more than ${maxFanouts} outgoing connections.`, 'danger');
+            selectedSourceNode.removeClass('highlighted');
+            selectedNode.removeClass('highlighted');
+            selectedSourceNode = null;
+            selectedNode = null;
+            return;
+        }
+
+        // Proceed to connect
         $.ajax({
             url: '/connect_gates',
             type: 'POST',
@@ -622,11 +672,13 @@ $(document).ready(() => {
                         }
                     });
 
+                    // Update gate labels after adding the edge
+                    updateGateLabels();
+
                     updateMessageArea('Gates connected successfully.', 'success');
                 } else {
                     updateMessageArea('Failed to connect gates: ' + data.error, 'danger');
                 }
-                // Remove highlights
                 selectedSourceNode.removeClass('highlighted');
                 selectedNode.removeClass('highlighted');
                 selectedSourceNode = null;
@@ -634,7 +686,6 @@ $(document).ready(() => {
             },
             error: () => {
                 updateMessageArea('Error communicating with the server.', 'danger');
-                // Remove highlights
                 selectedSourceNode.removeClass('highlighted');
                 selectedNode.removeClass('highlighted');
                 selectedSourceNode = null;
@@ -688,15 +739,13 @@ $(document).ready(() => {
     $('#export-button').on('click', function () {
         // Show a loading spinner or disable the button during the download
         $('#export-button').prop('disabled', true);
-        $('#loading-spinner').show();
 
         // Trigger the download
         window.location.href = '/export_layout';
 
         // Re-enable the button after a delay (or based on another event like download completion)
-        setTimeout(function() {
+        setTimeout(function () {
             $('#export-button').prop('disabled', false);
-            $('#loading-spinner').hide();
         }, 3000);  // Adjust this delay based on the expected download time
     });
 
@@ -743,7 +792,6 @@ $(document).ready(() => {
         }
     });
 
-
     function loadLayout() {
         $.ajax({
             url: '/get_layout',
@@ -773,6 +821,9 @@ $(document).ready(() => {
                             });
                         });
                     });
+
+                    // Update gate labels after loading
+                    updateGateLabels();
 
                     updateMessageArea('Layout loaded successfully.', 'success');
                 } else {
@@ -805,6 +856,9 @@ $(document).ready(() => {
                 break;
             case 'buf':
                 gateColor = 'palegoldenrod';
+                break;
+            case 'fanout':
+                gateColor = 'orange';
                 break;
             case 'and':
                 gateColor = 'lightpink';
