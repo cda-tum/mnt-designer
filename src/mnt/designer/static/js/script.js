@@ -254,6 +254,27 @@ $(document).ready(() => {
     });
   });
 
+  // Gold Button Click Event
+  $("#gold-button").on("click", function () {
+    $.ajax({
+      url: "/apply_gold",  // Backend route for the Gold algorithm
+      type: "POST",
+      contentType: "application/json",
+      success: function (data) {
+        if (data.success) {
+          // Update the layout with the new data after the Gold algorithm is applied
+          updateLayout(data.layoutDimensions, data.gates);
+          updateMessageArea("Gold algorithm applied successfully.", "success");
+        } else {
+          updateMessageArea("Failed to apply gold algorithm: " + data.error, "danger");
+        }
+      },
+      error: function (jqXHR, textStatus, errorThrown) {
+        updateMessageArea("Error applying gold algorithm: " + errorThrown, "danger");
+      }
+    });
+  });
+
   // Trigger file input when the import verilog button is clicked
   $("#import-verilog-button").on("click", function () {
     $("#import-verilog-file-input").click(); // Trigger file input dialog

@@ -11,7 +11,7 @@ from mnt.pyfiction import (
     route_path,
     write_fgl_layout,
     read_technology_network,
-    orthogonal,
+    orthogonal, graph_oriented_layout_design, graph_oriented_layout_design_params,
 )
 
 app = Flask(__name__)
@@ -353,42 +353,8 @@ def get_layout():
             return jsonify({"success": False, "error": "Layout not found."})
 
         # Extract layout data
-        layout_dimensions = {"x": layout.x() + 1, "y": layout.y() + 1}
-        gates = []
+        layout_dimensions, gates = layout.get_layout_dimensions(layout)
 
-        for x in range(layout.x() + 1):
-            for y in range(layout.y() + 1):
-                node = layout.get_node((x, y))
-                if node:
-                    if layout.is_pi(node):
-                        gate_type = "pi"
-                    elif layout.is_po(node):
-                        gate_type = "po"
-                    elif layout.is_wire(node):
-                        gate_type = "buf"
-                    elif layout.is_inv(node):
-                        gate_type = "inv"
-                    elif layout.is_and(node):
-                        gate_type = "and"
-                    elif layout.is_nand(node):
-                        gate_type = "nand"
-                    elif layout.is_or(node):
-                        gate_type = "or"
-                    elif layout.is_nor(node):
-                        gate_type = "nor"
-                    elif layout.is_xor(node):
-                        gate_type = "xor"
-                    elif layout.is_xnor(node):
-                        gate_type = "xnor"
-                    else:
-                        raise Exception("Unsupported gate type")
-
-                    gate_info = {"x": x, "y": y, "type": gate_type, "connections": []}
-                    # Get fanins (source nodes)
-                    fanins = layout.fanins((x, y))
-                    for fin in fanins:
-                        gate_info["connections"].append({"sourceX": fin.x, "sourceY": fin.y})
-                    gates.append(gate_info)
         return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
@@ -466,51 +432,81 @@ def apply_orthogonal():
         if not network:
             return jsonify({"success": False, "error": "Network not found. Please save or import Verilog code first."})
 
+        if network.size() > 500:
+            return jsonify({"success": False, "error": "Network size exceeds 500 nodes and the resulting layout can not be rendered."})
+
         # Apply the orthogonal function
         layout = orthogonal(network)
         layouts[session_id] = layout  # Update the layout in the session
 
-        # Extract layout data
-        layout_dimensions = {"x": layout.x() + 1, "y": layout.y() + 1}
-        gates = []
-
-        for x in range(layout.x() + 1):
-            for y in range(layout.y() + 1):
-                node = layout.get_node((x, y))
-                if node:
-                    if layout.is_pi(node):
-                        gate_type = "pi"
-                    elif layout.is_po(node):
-                        gate_type = "po"
-                    elif layout.is_wire(node):
-                        gate_type = "buf"
-                    elif layout.is_inv(node):
-                        gate_type = "inv"
-                    elif layout.is_and(node):
-                        gate_type = "and"
-                    elif layout.is_nand(node):
-                        gate_type = "nand"
-                    elif layout.is_or(node):
-                        gate_type = "or"
-                    elif layout.is_nor(node):
-                        gate_type = "nor"
-                    elif layout.is_xor(node):
-                        gate_type = "xor"
-                    elif layout.is_xnor(node):
-                        gate_type = "xnor"
-                    else:
-                        raise Exception("Unsupported gate type")
-
-                    gate_info = {"x": x, "y": y, "type": gate_type, "connections": []}
-                    # Get fanins (source nodes)
-                    fanins = layout.fanins((x, y))
-                    for fin in fanins:
-                        gate_info["connections"].append({"sourceX": fin.x, "sourceY": fin.y})
-                    gates.append(gate_info)
+        layout_dimensions, gates = get_layout_information(layout)
 
         return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/apply_gold", methods=["POST"])
+def apply_gold():
+    try:
+        session_id = session["session_id"]
+        network = networks.get(session_id)
+        if not network:
+            return jsonify({"success": False, "error": "Network not found. Please save or import Verilog code first."})
+
+        if network.size() > 150:
+            return jsonify({"success": False, "error": "Network size exceeds 200 nodes."})
+
+        # Apply gold
+        params = graph_oriented_layout_design_params()
+        params.timeout = 1000
+        layout = graph_oriented_layout_design(network, params)
+        layouts[session_id] = layout  # Update the layout in the session
+
+        layout_dimensions, gates = get_layout_information(layout)
+
+        return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+def get_layout_information(layout):
+    layout_dimensions = {"x": layout.x() + 1, "y": layout.y() + 1}
+    gates = []
+
+    for x in range(layout.x() + 1):
+        for y in range(layout.y() + 1):
+            node = layout.get_node((x, y))
+            if node:
+                if layout.is_pi(node):
+                    gate_type = "pi"
+                elif layout.is_po(node):
+                    gate_type = "po"
+                elif layout.is_wire(node):
+                    gate_type = "buf"
+                elif layout.is_inv(node):
+                    gate_type = "inv"
+                elif layout.is_and(node):
+                    gate_type = "and"
+                elif layout.is_nand(node):
+                    gate_type = "nand"
+                elif layout.is_or(node):
+                    gate_type = "or"
+                elif layout.is_nor(node):
+                    gate_type = "nor"
+                elif layout.is_xor(node):
+                    gate_type = "xor"
+                elif layout.is_xnor(node):
+                    gate_type = "xnor"
+                else:
+                    raise Exception("Unsupported gate type")
+
+                gate_info = {"x": x, "y": y, "type": gate_type, "connections": []}
+                # Get fanins (source nodes)
+                fanins = layout.fanins((x, y))
+                for fin in fanins:
+                    gate_info["connections"].append({"sourceX": fin.x, "sourceY": fin.y})
+                gates.append(gate_info)
+    return layout_dimensions, gates
 
 
 if __name__ == "__main__":
