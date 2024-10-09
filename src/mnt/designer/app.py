@@ -58,7 +58,7 @@ def place_gate():
             return jsonify({'success': False, 'error': 'Layout not found.'})
 
         node = layout.get_node((x, y))
-        if node is not None and getattr(node, 'gate_type', None):
+        if node != 0:
             return jsonify({'success': False, 'error': 'Tile already has a gate.'})
 
         # Enforce incoming signal constraints
@@ -79,6 +79,21 @@ def place_gate():
             existing_fanins = layout.fanins((x, y))
             if existing_fanins:
                 return jsonify({'success': False, 'error': f'Gate at ({x}, {y}) cannot have more than 1 input.'})
+
+            # Determine allowed number of fanouts
+            existing_fanouts = layout.fanouts((source_x, source_y))
+            num_fanouts = len(existing_fanouts)
+
+            if layout.is_po(source_node):
+                max_fanouts = 0
+            elif layout.is_wire(source_node):
+                max_fanouts = 2
+            else:
+                max_fanouts = 1
+
+            if num_fanouts >= max_fanouts:
+                return jsonify({'success': False,
+                                'error': f'Gate at ({source_x}, {source_y}) cannot have more than {max_fanouts} outgoing connections.'})
 
             if gate_type == 'po':
                 layout.create_po(layout.make_signal(source_node), "", (x, y))
@@ -102,6 +117,22 @@ def place_gate():
             existing_fanins = layout.fanins((x, y))
             if len(existing_fanins) >= 2:
                 return jsonify({'success': False, 'error': f'Gate at ({x}, {y}) cannot have more than 2 inputs.'})
+
+            for existing_fanin in existing_fanins:
+                # Determine allowed number of fanouts
+                existing_fanouts = layout.fanouts(existing_fanin)
+                num_fanouts = len(existing_fanouts)
+
+                if layout.is_po(existing_fanin):
+                    max_fanouts = 0
+                elif layout.is_wire(existing_fanin):
+                    max_fanouts = 2
+                else:
+                    max_fanouts = 1
+
+                if num_fanouts >= max_fanouts:
+                    return jsonify({'success': False,
+                                    'error': f'Gate at {existing_fanin} cannot have more than {max_fanouts} outgoing connections.'})
 
             if gate_type == 'and':
                 layout.create_and(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
@@ -147,7 +178,7 @@ def delete_gate():
             for outgoing_tile in outgoing_tiles:
                 # Get the other input signals, if any
                 incoming_tiles = layout.fanins(outgoing_tile)
-                incoming_tiles = [inp for inp in incoming_tiles if inp != (x, y)]
+                incoming_tiles = [layout.get_node(inp) for inp in incoming_tiles if inp != (x, y)]
                 layout.move_node(layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles)
 
             return jsonify({'success': True})
@@ -179,16 +210,13 @@ def connect_gates():
         if not target_node:
             return jsonify({'success': False, 'error': 'Target gate not found.'})
 
-        # Get the gate type of the source node
-        gate_type = getattr(source_node, 'gate_type', '').upper()
-
         # Determine allowed number of fanouts
         existing_fanouts = layout.fanouts((source_x, source_y))
         num_fanouts = len(existing_fanouts)
 
-        if gate_type == 'PO':
+        if layout.is_po(source_node):
             max_fanouts = 0
-        elif gate_type == 'BUF':
+        elif layout.is_wire(source_node):
             max_fanouts = 2
         else:
             max_fanouts = 1
@@ -196,10 +224,22 @@ def connect_gates():
         if num_fanouts >= max_fanouts:
             return jsonify({'success': False, 'error': f'Gate at ({source_x}, {source_y}) cannot have more than {max_fanouts} outgoing connections.'})
 
+        # Determine allowed number of fanins
+        existing_fanins = layout.fanins((target_x, target_y))
+        num_fanins = len(existing_fanins)
+
+        if layout.is_pi(target_node):
+            max_fanins = 0
+        elif layout.is_wire(target_node) or layout.is_inv(target_node):
+            max_fanins = 1
+        else:
+            max_fanins = 2
+
+        if num_fanins >= max_fanins:
+            return jsonify({'success': False, 'error': f'Gate at ({target_x}, {target_y}) cannot have more than {max_fanins} incoming connections.'})
+
         # Create a connection from source_node to target_node
         route_path(layout, [(source_x, source_y), (target_x, target_y)])
-
-        # No need to replace the gate type in the backend
 
         return jsonify({'success': True})
     except Exception as e:

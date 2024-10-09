@@ -108,6 +108,9 @@ $(document).ready(() => {
     // Initialize Cytoscape
     initializeCytoscape();
 
+    // Load the layout from the backend
+    loadLayout();
+
     // Gate selection
     $('#gate-selection button').on('click', function () {
         const buttonId = $(this).attr('id');
@@ -259,9 +262,14 @@ $(document).ready(() => {
             return;
         }
         // Proceed to place PI gate
-        placeGate(selectedNode.data('x'), selectedNode.data('y'), 'pi', {});
-        updateMessageArea('PI gate placed successfully.', 'success');
-        selectedNode = null;
+        placeGate(selectedNode.data('x'), selectedNode.data('y'), 'pi', {})
+            .then(() => {
+                updateMessageArea('PI gate placed successfully.', 'success');
+                selectedNode = null;
+            })
+            .catch(() => {
+                selectedNode = null;
+            });
     }
 
     // Handle gate placement
@@ -324,27 +332,35 @@ $(document).ready(() => {
 
         placeGate(gateX, gateY, selectedGateType, {
             first: { position: { x: selectedSourceNode.data('x'), y: selectedSourceNode.data('y') } }
+        })
+        .then(() => {
+            // Only add the edge if the gate was placed successfully
+            cy.add({
+                group: 'edges',
+                data: {
+                    id: `edge-${selectedSourceNode.id()}-${selectedNode.id()}`,
+                    source: selectedSourceNode.id(),
+                    target: selectedNode.id()
+                }
+            });
+
+            // Remove highlight from source node
+            selectedSourceNode.removeClass('highlighted');
+
+            // Update gate labels
+            updateGateLabels();
+
+            updateMessageArea(`${selectedGateType.toUpperCase()} gate placed successfully.`, 'success');
+
+            selectedNode = null;
+            selectedSourceNode = null;
+        })
+        .catch(() => {
+            // Remove highlight from source node in case of failure
+            selectedSourceNode.removeClass('highlighted');
+            selectedNode = null;
+            selectedSourceNode = null;
         });
-
-        cy.add({
-            group: 'edges',
-            data: {
-                id: `edge-${selectedSourceNode.id()}-${selectedNode.id()}`,
-                source: selectedSourceNode.id(),
-                target: selectedNode.id()
-            }
-        });
-
-        // Remove highlight from source node
-        selectedSourceNode.removeClass('highlighted');
-
-        // Update gate labels
-        updateGateLabels();
-
-        updateMessageArea(`${selectedGateType.toUpperCase()} gate placed successfully.`, 'success');
-
-        selectedNode = null;
-        selectedSourceNode = null;
     }
 
     // Handle dual input gates (AND, OR, NOR, XOR, XNOR)
@@ -399,39 +415,49 @@ $(document).ready(() => {
         placeGate(gateX, gateY, selectedGateType, {
             first: { position: { x: selectedSourceNode.data('x'), y: selectedSourceNode.data('y') } },
             second: { position: { x: selectedSourceNode2.data('x'), y: selectedSourceNode2.data('y') } }
+        })
+        .then(() => {
+            // Only add the edges if the gate was placed successfully
+            cy.add([
+                {
+                    group: 'edges',
+                    data: {
+                        id: `edge-${selectedSourceNode.id()}-${selectedNode.id()}`,
+                        source: selectedSourceNode.id(),
+                        target: selectedNode.id()
+                    }
+                },
+                {
+                    group: 'edges',
+                    data: {
+                        id: `edge-${selectedSourceNode2.id()}-${selectedNode.id()}`,
+                        source: selectedSourceNode2.id(),
+                        target: selectedNode.id()
+                    }
+                }
+            ]);
+
+            // Remove highlights from source nodes
+            selectedSourceNode.removeClass('highlighted');
+            selectedSourceNode2.removeClass('highlighted');
+
+            // Update gate labels
+            updateGateLabels();
+
+            updateMessageArea(`${selectedGateType.toUpperCase()} gate placed successfully.`, 'success');
+
+            selectedNode = null;
+            selectedSourceNode = null;
+            selectedSourceNode2 = null;
+        })
+        .catch(() => {
+            // Remove highlights from source nodes in case of failure
+            if (selectedSourceNode) selectedSourceNode.removeClass('highlighted');
+            if (selectedSourceNode2) selectedSourceNode2.removeClass('highlighted');
+            selectedNode = null;
+            selectedSourceNode = null;
+            selectedSourceNode2 = null;
         });
-
-        cy.add([
-            {
-                group: 'edges',
-                data: {
-                    id: `edge-${selectedSourceNode.id()}-${selectedNode.id()}`,
-                    source: selectedSourceNode.id(),
-                    target: selectedNode.id()
-                }
-            },
-            {
-                group: 'edges',
-                data: {
-                    id: `edge-${selectedSourceNode2.id()}-${selectedNode.id()}`,
-                    source: selectedSourceNode2.id(),
-                    target: selectedNode.id()
-                }
-            }
-        ]);
-
-        // Remove highlights from source nodes
-        selectedSourceNode.removeClass('highlighted');
-        selectedSourceNode2.removeClass('highlighted');
-
-        // Update gate labels
-        updateGateLabels();
-
-        updateMessageArea(`${selectedGateType.toUpperCase()} gate placed successfully.`, 'success');
-
-        selectedNode = null;
-        selectedSourceNode = null;
-        selectedSourceNode2 = null;
     }
 
     // Check if nodes are adjacent in cardinal directions (no diagonals)
@@ -459,78 +485,86 @@ $(document).ready(() => {
             (sourceNumber === 4 && targetNumber === 1);
     }
 
+    // Modified placeGate function to return a Promise
     function placeGate(x, y, gateType, params) {
-        $.ajax({
-            url: '/place_gate',
-            type: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({
-                x: parseInt(x),
-                y: parseInt(y),
-                gate_type: gateType,
-                params: params
-            }),
-            success: (data) => {
-                if (data.success) {
-                    const node = cy.getElementById(`node-${x}-${y}`);
-                    node.data('label', `${gateType.toUpperCase()}`);
-                    node.data('hasGate', true);
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: '/place_gate',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    x: parseInt(x),
+                    y: parseInt(y),
+                    gate_type: gateType,
+                    params: params
+                }),
+                success: (data) => {
+                    if (data.success) {
+                        const node = cy.getElementById(`node-${x}-${y}`);
+                        node.data('label', `${gateType.toUpperCase()}`);
+                        node.data('hasGate', true);
 
-                    // Apply custom colors based on the gate type
-                    let gateColor = node.data('color'); // Default to tile color
+                        // Apply custom colors based on the gate type
+                        let gateColor = node.data('color'); // Default to tile color
 
-                    switch (gateType) {
-                        case 'pi':
-                            gateColor = 'lightgreen';
-                            break;
-                        case 'po':
-                            gateColor = 'lightblue';
-                            break;
-                        case 'inv':
-                            gateColor = 'lightcoral';
-                            break;
-                        case 'buf':
-                            gateColor = 'palegoldenrod';
-                            break;
-                        case 'and':
-                            gateColor = 'lightpink';
-                            break;
-                        case 'or':
-                            gateColor = 'lightyellow';
-                            break;
-                        case 'nor':
-                            gateColor = 'plum';
-                            break;
-                        case 'xor':
-                            gateColor = 'lightcyan';
-                            break;
-                        case 'xnor':
-                            gateColor = 'lavender';
-                            break;
-                        default:
-                            gateColor = node.data('color');
+                        switch (gateType) {
+                            case 'pi':
+                                gateColor = 'lightgreen';
+                                break;
+                            case 'po':
+                                gateColor = 'lightblue';
+                                break;
+                            case 'inv':
+                                gateColor = 'lightcoral';
+                                break;
+                            case 'buf':
+                                gateColor = 'palegoldenrod';
+                                break;
+                            case 'and':
+                                gateColor = 'lightpink';
+                                break;
+                            case 'or':
+                                gateColor = 'lightyellow';
+                                break;
+                            case 'nor':
+                                gateColor = 'plum';
+                                break;
+                            case 'xor':
+                                gateColor = 'lightcyan';
+                                break;
+                            case 'xnor':
+                                gateColor = 'lavender';
+                                break;
+                            default:
+                                gateColor = node.data('color');
+                        }
+
+                        // Apply the chosen background color
+                        node.style('background-color', gateColor);
+
+                        // Ensure the tile number remains visible
+                        const tileNumber = node.data('tileNumber');
+                        node.style({
+                            'background-image': `data:image/svg+xml;utf8,${encodeURIComponent(createTileNumberSVG(tileNumber))}`,
+                            'background-width': '100%',
+                            'background-height': '100%',
+                            'background-position': 'bottom right',
+                            'background-repeat': 'no-repeat',
+                            'background-clip': 'none',
+                        });
+
+                        // Resolve the Promise after successful placement
+                        resolve();
+                    } else {
+                        updateMessageArea('Failed to place gate: ' + data.error, 'danger');
+                        reject();
                     }
-
-                    // Apply the chosen background color
-                    node.style('background-color', gateColor);
-
-                    // Ensure the tile number remains visible
-                    const tileNumber = node.data('tileNumber');
-                    node.style({
-                        'background-image': `data:image/svg+xml;utf8,${encodeURIComponent(createTileNumberSVG(tileNumber))}`,
-                        'background-width': '100%',
-                        'background-height': '100%',
-                        'background-position': 'bottom right',
-                        'background-repeat': 'no-repeat',
-                        'background-clip': 'none',
-                    });
-                } else {
-                    updateMessageArea('Failed to place gate: ' + data.error, 'danger');
+                },
+                error: (jqXHR, textStatus, errorThrown) => {
+                    updateMessageArea('Error communicating with the server: ' + errorThrown, 'danger');
+                    reject();
                 }
-            },
-            error: (jqXHR, textStatus, errorThrown) => {
-                updateMessageArea('Error communicating with the server: ' + errorThrown, 'danger');
-            }
+            });
         });
     }
 
@@ -827,7 +861,7 @@ $(document).ready(() => {
 
                     updateMessageArea('Layout loaded successfully.', 'success');
                 } else {
-                    updateMessageArea('Failed to load layout: ' + data.error, 'danger');
+                    updateMessageArea('No existing layout found. Please create a new layout.', 'info');
                 }
             },
             error: (jqXHR, textStatus, errorThrown) => {
