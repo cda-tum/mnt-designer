@@ -9,7 +9,9 @@ from mnt.pyfiction import (
     gate_level_drvs,
     read_cartesian_fgl_layout,
     route_path,
-    write_fgl_layout,  # Ensure your module imports are correct
+    write_fgl_layout,
+    read_technology_network,
+    orthogonal,
 )
 
 app = Flask(__name__)
@@ -18,6 +20,8 @@ app.secret_key = "your_secret_key"  # Replace with a secure secret key
 # In-memory storage for user layouts
 layouts = {}
 
+# In-memory storage for user networks
+networks = {}
 
 @app.route("/")
 def index():
@@ -297,7 +301,7 @@ def export_layout():
             return jsonify({"success": False, "error": "Layout not found."})
 
         # Serialize the layout to XML file
-        file_path = "layout.fgl"
+        file_path = f"layout_{session_id}.fgl"
         write_fgl_layout(layout, file_path)
 
         # Send the XML file as an attachment
@@ -320,7 +324,7 @@ def import_layout():
             return jsonify({"success": False, "error": "No file provided."})
 
         # Create a temporary file to save the uploaded XML file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as temp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".fgl") as temp_file:
             file.save(temp_file.name)  # Save the uploaded file to the temporary file
 
         # Call the function with the temporary file's name (path)
@@ -393,6 +397,120 @@ def get_layout():
 def check_design_rules_function(layout):
     violations = gate_level_drvs(layout, print_report=True)
     return violations
+
+@app.route("/save_verilog_code", methods=["POST"])
+def save_verilog_code():
+    try:
+        data = request.json
+        code = data.get("code", "")
+
+        # Create a temporary file to save the uploaded Verilog code
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".v") as temp_file:
+            temp_file.write(code.encode('utf-8'))
+            temp_file.flush()  # Ensure all data is written to disk
+
+        # Call the function with the temporary file's name (path)
+        try:
+            network = read_technology_network(temp_file.name)
+        finally:
+            # Clean up: delete the temporary file after processing
+            os.remove(temp_file.name)
+
+        session_id = session["session_id"]
+        networks[session_id] = network
+
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/import_verilog_code", methods=["POST"])
+def import_verilog_code():
+    try:
+        # Get the uploaded file with the key 'file'
+        uploaded_file = request.files.get("file")
+        if not uploaded_file:
+            return jsonify({"success": False, "error": "No file provided."})
+
+        # Read the file content
+        code = uploaded_file.read().decode('utf-8')
+
+        # Create a temporary file to save the uploaded Verilog code
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".v") as temp_file:
+            temp_file.write(code.encode('utf-8'))
+            temp_file.flush()  # Ensure all data is written to disk
+
+        # Call the function with the temporary file's name (path)
+        try:
+            network = read_technology_network(temp_file.name)
+        finally:
+            # Clean up: delete the temporary file after processing
+            os.remove(temp_file.name)
+
+        # Store the network in the session
+        session_id = session["session_id"]
+        networks[session_id] = network
+
+        # Return the code to be displayed in the editor
+        return jsonify({"success": True, "code": code})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/apply_orthogonal", methods=["POST"])
+def apply_orthogonal():
+    try:
+        session_id = session["session_id"]
+        network = networks.get(session_id)
+        if not network:
+            return jsonify({"success": False, "error": "Network not found. Please save or import Verilog code first."})
+
+        # Apply the orthogonal function
+        layout = orthogonal(network)
+        layouts[session_id] = layout  # Update the layout in the session
+
+        # Extract layout data
+        layout_dimensions = {"x": layout.x() + 1, "y": layout.y() + 1}
+        gates = []
+
+        for x in range(layout.x() + 1):
+            for y in range(layout.y() + 1):
+                node = layout.get_node((x, y))
+                if node:
+                    if layout.is_pi(node):
+                        gate_type = "pi"
+                    elif layout.is_po(node):
+                        gate_type = "po"
+                    elif layout.is_wire(node):
+                        gate_type = "buf"
+                    elif layout.is_inv(node):
+                        gate_type = "inv"
+                    elif layout.is_and(node):
+                        gate_type = "and"
+                    elif layout.is_nand(node):
+                        gate_type = "nand"
+                    elif layout.is_or(node):
+                        gate_type = "or"
+                    elif layout.is_nor(node):
+                        gate_type = "nor"
+                    elif layout.is_xor(node):
+                        gate_type = "xor"
+                    elif layout.is_xnor(node):
+                        gate_type = "xnor"
+                    else:
+                        raise Exception("Unsupported gate type")
+
+                    gate_info = {"x": x, "y": y, "type": gate_type, "connections": []}
+                    # Get fanins (source nodes)
+                    fanins = layout.fanins((x, y))
+                    for fin in fanins:
+                        gate_info["connections"].append({"sourceX": fin.x, "sourceY": fin.y})
+                    gates.append(gate_info)
+
+        return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 
 if __name__ == "__main__":

@@ -12,6 +12,42 @@ $(document).ready(() => {
     4: "#3f3f3f", // Dark Gray
   };
 
+  // Initialize Ace Editor
+  let editor = ace.edit("editor-container");
+  editor.setTheme("ace/theme/monokai");
+  editor.session.setMode("ace/mode/verilog");
+
+  // Debounce function to limit the rate of AJAX calls
+  function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  // Save code to backend on change with debounce
+  editor.session.on('change', debounce(function () {
+    let code = editor.getValue();
+    $.ajax({
+      url: "/save_verilog_code",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({ code: code }),
+      success: function(data) {
+        if (!data.success) {
+          updateMessageArea("Failed to save verilog: " + data.error, "danger");
+        }
+        else {
+          updateMessageArea("Updated verilog", "info");
+        }
+      },
+      error: function(jqXHR, textStatus, errorThrown) {
+        updateMessageArea("Error communicating with the server: " + errorThrown, "danger");
+      }
+    });
+  }, 1000));
+
   // Initialize Cytoscape instance
   function initializeCytoscape() {
     cy = cytoscape({
@@ -62,9 +98,13 @@ $(document).ready(() => {
       layout: {
         name: "preset",
       },
-      userZoomingEnabled: false,
-      userPanningEnabled: false,
+      userZoomingEnabled: true,  // Allow zooming
+      userPanningEnabled: true,  // Allow panning
+      wheelSensitivity: 0.5,     // Adjust zoom speed (optional)
       boxSelectionEnabled: false,
+      panningEnabled: true,  // Enable panning
+      autoungrabify: true,      // Nodes cannot be grabbed (dragged)
+      autounselectify: true,    // Nodes cannot be selected
     });
 
     // Disable node dragging
@@ -110,6 +150,151 @@ $(document).ready(() => {
 
   // Load the layout from the backend
   loadLayout();
+
+  function updateLayout(layoutDimensions, gates) {
+    // Clear existing elements
+    cy.elements().remove();
+
+    // Recreate the grid with new dimensions
+    createGridNodes(layoutDimensions.x, layoutDimensions.y);
+
+    // Place gates and connections based on the new layout data
+    gates.forEach((gate) => {
+      // Place the gate
+      placeGateLocally(gate.x, gate.y, gate.type);
+
+      // Handle connections (edges)
+      gate.connections.forEach((conn) => {
+        cy.add({
+          group: "edges",
+          data: {
+            id: `edge-node-${conn.sourceX}-${conn.sourceY}-node-${gate.x}-${gate.y}`,
+            source: `node-${conn.sourceX}-${conn.sourceY}`,
+            target: `node-${gate.x}-${gate.y}`,
+          },
+        });
+      });
+    });
+
+    // Update gate labels after loading
+    updateGateLabels();
+
+    // Fit the Cytoscape view to the new layout
+    cy.fit();
+  }
+
+  cy.nodes().ungrabify();
+
+  // Panning using arrow keys
+  document.addEventListener('keydown', function(event) {
+    const panAmount = 50; // Adjust this value to change pan speed
+    if (event.key === 'ArrowLeft') {
+      cy.panBy({ x: panAmount, y: 0 });
+      event.preventDefault(); // Prevent the default scrolling behavior
+    } else if (event.key === 'ArrowRight') {
+      cy.panBy({ x: -panAmount, y: 0 });
+      event.preventDefault();
+    } else if (event.key === 'ArrowUp') {
+      cy.panBy({ x: 0, y: panAmount });
+      event.preventDefault();
+    } else if (event.key === 'ArrowDown') {
+      cy.panBy({ x: 0, y: -panAmount });
+      event.preventDefault();
+    }
+  });
+
+  // Zoom In Button
+  $("#zoom-in").on("click", function () {
+    let zoomLevel = cy.zoom();
+    cy.zoom({
+      level: zoomLevel * 1.2, // Increase zoom by 20%
+      renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 }  // Zoom towards the center
+    });
+  });
+
+  // Zoom Out Button
+  $("#zoom-out").on("click", function () {
+    let zoomLevel = cy.zoom();
+    cy.zoom({
+      level: zoomLevel * 0.8, // Decrease zoom by 20%
+      renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 }  // Zoom towards the center
+    });
+  });
+
+  // Reset Zoom Button
+  $("#reset-zoom").on("click", function () {
+    cy.fit();  // Reset zoom to fit the entire layout in view
+  });
+
+  // Ortho Button Click Handler
+  $("#ortho-button").on("click", function () {
+    // Disable the button to prevent multiple clicks
+    $("#ortho-button").prop("disabled", true);
+    updateMessageArea("Applying ortho...", "info");
+
+    $.ajax({
+      url: "/apply_orthogonal",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({}),
+      success: (data) => {
+        $("#ortho-button").prop("disabled", false); // Re-enable button
+        if (data.success) {
+          // Update the layout with the new data
+          updateLayout(data.layoutDimensions, data.gates);
+          updateMessageArea("Created layout with ortho successfully.", "success");
+        } else {
+          updateMessageArea("Failed to create layout using ortho: " + data.error, "danger");
+        }
+      },
+      error: (jqXHR, textStatus, errorThrown) => {
+        $("#ortho-button").prop("disabled", false); // Re-enable button
+        updateMessageArea("Error communicating with the server: " + errorThrown, "danger");
+      },
+    });
+  });
+
+  // Trigger file input when the import verilog button is clicked
+  $("#import-verilog-button").on("click", function () {
+    $("#import-verilog-file-input").click(); // Trigger file input dialog
+  });
+
+  // Handle File Selection and upload it
+  $("#import-verilog-file-input").on("change", function () {
+    const file = this.files[0]; // Get the selected file
+    if (file) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // Disable the button and show a loading message
+      $("#import-verilog-button").prop("disabled", true);
+      updateMessageArea("Uploading Verilog code...", "info");
+
+      $.ajax({
+        url: "/import_verilog_code",
+        type: "POST",
+        data: formData,
+        processData: false, // Prevent jQuery from processing the data
+        contentType: false, // Let the browser set the correct content type
+        success: (data) => {
+          $("#import-verilog-button").prop("disabled", false); // Re-enable button
+          if (data.success) {
+            // Load the code into the editor
+            editor.setValue(data.code, -1); // -1 moves cursor to the beginning
+            updateMessageArea("Verilog code imported successfully.", "success");
+          } else {
+            updateMessageArea("Failed to import Verilog code: " + data.error, "danger");
+          }
+        },
+        error: (jqXHR, textStatus, errorThrown) => {
+          $("#import-verilog-button").prop("disabled", false); // Re-enable button
+          updateMessageArea("Error communicating with the server: " + errorThrown, "danger");
+        },
+      });
+    } else {
+      updateMessageArea("No file selected.", "danger");
+    }
+  });
 
   // Gate selection
   $("#gate-selection button").on("click", function () {

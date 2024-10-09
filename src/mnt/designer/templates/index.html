@@ -15,6 +15,8 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
     />
+    <!-- Include Ace Editor -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js" crossorigin="anonymous"></script>
     <!-- Custom CSS -->
     <link
       rel="stylesheet"
@@ -58,6 +60,9 @@
       </form>
       <!-- Import/Export Buttons -->
       <div class="btn-group mb-3 d-flex justify-content-center" role="group">
+        <button type="button" id="import-verilog-button" class="btn btn-outline-primary">
+          <i class="fas fa-file-import"></i> Import Verilog
+        </button>
         <button
           type="button"
           id="import-button"
@@ -80,6 +85,7 @@
         accept=".xml"
         style="display: none"
       />
+      <input type="file" id="import-verilog-file-input" accept=".v" style="display: none" />
       <!-- Gate Selection -->
       <div
         id="gate-selection"
@@ -209,6 +215,9 @@
       </div>
       <!-- Design Rule Check Button -->
       <div class="mb-3 d-flex justify-content-center">
+        <button type="button" id="ortho-button" class="btn btn-outline-primary">
+          <i class="fas fa-project-diagram"></i> Ortho
+        </button>
         <button
           type="button"
           id="check-rules-button"
@@ -216,18 +225,38 @@
         >
           <i class="fas fa-check-circle"></i> Check Design Rules
         </button>
+        <!-- Zoom Controls -->
       </div>
       <!-- Message Area -->
       <div id="message-area" class="alert alert-info text-center" role="alert">
         Please create a layout to get started.
+      </div>
+      <div class="zoom-controls d-flex justify-content-center mb-3">
+        <button id="zoom-in" class="btn btn-outline-secondary mx-2">
+          <i class="fas fa-search-plus"></i> Zoom In
+        </button>
+        <button id="zoom-out" class="btn btn-outline-secondary mx-2">
+          <i class="fas fa-search-minus"></i> Zoom Out
+        </button>
+        <button id="reset-zoom" class="btn btn-outline-secondary mx-2">
+          <i class="fas fa-compress"></i> Reset Zoom
+        </button>
       </div>
       <!-- Violations Area -->
       <div id="violations-area" class="alert alert-warning d-none" role="alert">
         <h5>Design Rule Violations:</h5>
         <ul id="violations-list"></ul>
       </div>
-      <!-- Cytoscape Container -->
-      <div id="cy"></div>
+      <div class="row">
+        <div class="col-md-4">
+          <!-- Text Editor -->
+          <div id="editor-container"></div>
+        </div>
+        <div class="col-md-8">
+          <!-- Cytoscape Container -->
+          <div id="cy"></div>
+        </div>
+      </div>
     </div>
     <!-- jQuery and Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

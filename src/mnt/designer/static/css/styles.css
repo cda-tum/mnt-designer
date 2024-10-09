@@ -10,6 +10,22 @@
   user-select: none;
 }
 
+.zoom-controls {
+  margin-bottom: 15px;
+}
+
+.zoom-controls button {
+  padding: 8px 12px;
+}
+
+#editor-container {
+  width: 100%;
+  height: 600px;
+  border: 1px solid #ccc;
+  margin-bottom: 20px;
+  border-radius: 5px;
+}
+
 .btn-group .btn.active {
   background-color: #0d6efd;
   color: white;
