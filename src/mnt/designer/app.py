@@ -1,34 +1,41 @@
-from flask import Flask, render_template, request, jsonify, session, make_response, send_file
-from mnt.pyfiction import cartesian_gate_layout, route_path, gate_level_drvs, \
-    write_fgl_layout, read_cartesian_fgl_layout  # Ensure your module imports are correct
-import uuid
-import tempfile
 import os
+import tempfile
+import uuid
+
+from flask import Flask, jsonify, render_template, request, send_file, session
+
+from mnt.pyfiction import (
+    cartesian_gate_layout,
+    gate_level_drvs,
+    read_cartesian_fgl_layout,
+    route_path,
+    write_fgl_layout,  # Ensure your module imports are correct
+)
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Replace with a secure secret key
+app.secret_key = "your_secret_key"  # Replace with a secure secret key
 
 # In-memory storage for user layouts
 layouts = {}
 
 
-@app.route('/')
+@app.route("/")
 def index():
     # Assign a unique session ID if not already present
-    if 'session_id' not in session:
-        session['session_id'] = str(uuid.uuid4())
-    return render_template('index.html')
+    if "session_id" not in session:
+        session["session_id"] = str(uuid.uuid4())
+    return render_template("index.html")
 
 
-@app.route('/create_layout', methods=['POST'])
+@app.route("/create_layout", methods=["POST"])
 def create_layout():
     try:
         data = request.json
-        x = int(data.get('x')) - 1
-        y = int(data.get('y')) - 1
+        x = int(data.get("x")) - 1
+        y = int(data.get("y")) - 1
         z = 0  # Default Z value
 
-        session_id = session['session_id']
+        session_id = session["session_id"]
         layout = layouts.get(session_id)
 
         if not layout:
@@ -38,47 +45,47 @@ def create_layout():
 
         # Resize the existing layout
         layout.resize((x, y, z))
-        return jsonify({'success': True})
+        return jsonify({"success": True})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/place_gate', methods=['POST'])
+@app.route("/place_gate", methods=["POST"])
 def place_gate():
     try:
         data = request.json
-        x = int(data['x'])
-        y = int(data['y'])
-        gate_type = data['gate_type']
-        params = data['params']
+        x = int(data["x"])
+        y = int(data["y"])
+        gate_type = data["gate_type"]
+        params = data["params"]
 
-        session_id = session['session_id']
+        session_id = session["session_id"]
         layout = layouts.get(session_id)
         if not layout:
-            return jsonify({'success': False, 'error': 'Layout not found.'})
+            return jsonify({"success": False, "error": "Layout not found."})
 
         node = layout.get_node((x, y))
         if node != 0:
-            return jsonify({'success': False, 'error': 'Tile already has a gate.'})
+            return jsonify({"success": False, "error": "Tile already has a gate."})
 
         # Enforce incoming signal constraints
-        if gate_type == 'pi':
+        if gate_type == "pi":
             if params:
-                return jsonify({'success': False, 'error': 'PI gate cannot have inputs.'})
-            layout.create_pi('', (x, y))
-        elif gate_type in ['buf', 'inv', 'po']:
-            if 'first' not in params or 'second' in params:
-                return jsonify({'success': False, 'error': f'{gate_type.upper()} gate requires exactly one input.'})
-            source_x = int(params['first']['position']['x'])
-            source_y = int(params['first']['position']['y'])
+                return jsonify({"success": False, "error": "PI gate cannot have inputs."})
+            layout.create_pi("", (x, y))
+        elif gate_type in ["buf", "inv", "po"]:
+            if "first" not in params or "second" in params:
+                return jsonify({"success": False, "error": f"{gate_type.upper()} gate requires exactly one input."})
+            source_x = int(params["first"]["position"]["x"])
+            source_y = int(params["first"]["position"]["y"])
             source_node = layout.get_node((source_x, source_y))
             if not source_node:
-                return jsonify({'success': False, 'error': 'Source gate not found.'})
+                return jsonify({"success": False, "error": "Source gate not found."})
 
             # Check if the gate already has inputs
             existing_fanins = layout.fanins((x, y))
             if existing_fanins:
-                return jsonify({'success': False, 'error': f'Gate at ({x}, {y}) cannot have more than 1 input.'})
+                return jsonify({"success": False, "error": f"Gate at ({x}, {y}) cannot have more than 1 input."})
 
             # Determine allowed number of fanouts
             existing_fanouts = layout.fanouts((source_x, source_y))
@@ -92,31 +99,35 @@ def place_gate():
                 max_fanouts = 1
 
             if num_fanouts >= max_fanouts:
-                return jsonify({'success': False,
-                                'error': f'Gate at ({source_x}, {source_y}) cannot have more than {max_fanouts} outgoing connections.'})
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"Gate at ({source_x}, {source_y}) cannot have more than {max_fanouts} outgoing connections.",
+                    }
+                )
 
-            if gate_type == 'po':
+            if gate_type == "po":
                 layout.create_po(layout.make_signal(source_node), "", (x, y))
-            elif gate_type == 'inv':
+            elif gate_type == "inv":
                 layout.create_not(layout.make_signal(source_node), (x, y))
-            elif gate_type == 'buf':
+            elif gate_type == "buf":
                 layout.create_buf(layout.make_signal(source_node), (x, y))
-        elif gate_type in ['and', 'or', 'nor', 'xor', 'xnor']:
-            if 'first' not in params or 'second' not in params:
-                return jsonify({'success': False, 'error': f'{gate_type.upper()} gate requires exactly two inputs.'})
-            first_x = int(params['first']['position']['x'])
-            first_y = int(params['first']['position']['y'])
-            second_x = int(params['second']['position']['x'])
-            second_y = int(params['second']['position']['y'])
+        elif gate_type in ["and", "or", "nor", "xor", "xnor"]:
+            if "first" not in params or "second" not in params:
+                return jsonify({"success": False, "error": f"{gate_type.upper()} gate requires exactly two inputs."})
+            first_x = int(params["first"]["position"]["x"])
+            first_y = int(params["first"]["position"]["y"])
+            second_x = int(params["second"]["position"]["x"])
+            second_y = int(params["second"]["position"]["y"])
             first_node = layout.get_node((first_x, first_y))
             second_node = layout.get_node((second_x, second_y))
             if not first_node or not second_node:
-                return jsonify({'success': False, 'error': 'One or both source gates not found.'})
+                return jsonify({"success": False, "error": "One or both source gates not found."})
 
             # Check if the gate already has inputs
             existing_fanins = layout.fanins((x, y))
             if len(existing_fanins) >= 2:
-                return jsonify({'success': False, 'error': f'Gate at ({x}, {y}) cannot have more than 2 inputs.'})
+                return jsonify({"success": False, "error": f"Gate at ({x}, {y}) cannot have more than 2 inputs."})
 
             for existing_fanin in existing_fanins:
                 # Determine allowed number of fanouts
@@ -131,40 +142,44 @@ def place_gate():
                     max_fanouts = 1
 
                 if num_fanouts >= max_fanouts:
-                    return jsonify({'success': False,
-                                    'error': f'Gate at {existing_fanin} cannot have more than {max_fanouts} outgoing connections.'})
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": f"Gate at {existing_fanin} cannot have more than {max_fanouts} outgoing connections.",
+                        }
+                    )
 
-            if gate_type == 'and':
+            if gate_type == "and":
                 layout.create_and(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
-            elif gate_type == 'or':
+            elif gate_type == "or":
                 layout.create_or(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
-            elif gate_type == 'nor':
+            elif gate_type == "nor":
                 layout.create_nor(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
-            elif gate_type == 'xor':
+            elif gate_type == "xor":
                 layout.create_xor(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
-            elif gate_type == 'xnor':
+            elif gate_type == "xnor":
                 layout.create_xnor(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
         else:
-            return jsonify({'success': False, 'error': f'Unsupported gate type: {gate_type}'})
+            return jsonify({"success": False, "error": f"Unsupported gate type: {gate_type}"})
 
         print(layout)
-        return jsonify({'success': True})
+        return jsonify({"success": True})
     except Exception as e:
         print(f"Error in place_gate: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/delete_gate', methods=['POST'])
+@app.route("/delete_gate", methods=["POST"])
 def delete_gate():
     try:
         data = request.json
-        x = int(data['x'])
-        y = int(data['y'])
+        x = int(data["x"])
+        y = int(data["y"])
 
-        session_id = session['session_id']
+        session_id = session["session_id"]
         layout = layouts.get(session_id)
         if not layout:
-            return jsonify({'success': False, 'error': 'Layout not found.'})
+            return jsonify({"success": False, "error": "Layout not found."})
 
         # Remove the gate from the layout
         node = layout.get_node((x, y))
@@ -181,34 +196,34 @@ def delete_gate():
                 incoming_tiles = [layout.get_node(inp) for inp in incoming_tiles if inp != (x, y)]
                 layout.move_node(layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles)
 
-            return jsonify({'success': True})
+            return jsonify({"success": True})
         else:
-            return jsonify({'success': False, 'error': 'Gate not found at the specified position.'})
+            return jsonify({"success": False, "error": "Gate not found at the specified position."})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/connect_gates', methods=['POST'])
+@app.route("/connect_gates", methods=["POST"])
 def connect_gates():
     try:
         data = request.json
-        source_x = int(data['source_x'])
-        source_y = int(data['source_y'])
-        target_x = int(data['target_x'])
-        target_y = int(data['target_y'])
+        source_x = int(data["source_x"])
+        source_y = int(data["source_y"])
+        target_x = int(data["target_x"])
+        target_y = int(data["target_y"])
 
-        session_id = session['session_id']
+        session_id = session["session_id"]
         layout = layouts.get(session_id)
         if not layout:
-            return jsonify({'success': False, 'error': 'Layout not found.'})
+            return jsonify({"success": False, "error": "Layout not found."})
 
         source_node = layout.get_node((source_x, source_y))
         target_node = layout.get_node((target_x, target_y))
 
         if not source_node:
-            return jsonify({'success': False, 'error': 'Source gate not found.'})
+            return jsonify({"success": False, "error": "Source gate not found."})
         if not target_node:
-            return jsonify({'success': False, 'error': 'Target gate not found.'})
+            return jsonify({"success": False, "error": "Target gate not found."})
 
         # Determine allowed number of fanouts
         existing_fanouts = layout.fanouts((source_x, source_y))
@@ -222,7 +237,12 @@ def connect_gates():
             max_fanouts = 1
 
         if num_fanouts >= max_fanouts:
-            return jsonify({'success': False, 'error': f'Gate at ({source_x}, {source_y}) cannot have more than {max_fanouts} outgoing connections.'})
+            return jsonify(
+                {
+                    "success": False,
+                    "error": f"Gate at ({source_x}, {source_y}) cannot have more than {max_fanouts} outgoing connections.",
+                }
+            )
 
         # Determine allowed number of fanins
         existing_fanins = layout.fanins((target_x, target_y))
@@ -236,68 +256,71 @@ def connect_gates():
             max_fanins = 2
 
         if num_fanins >= max_fanins:
-            return jsonify({'success': False, 'error': f'Gate at ({target_x}, {target_y}) cannot have more than {max_fanins} incoming connections.'})
+            return jsonify(
+                {
+                    "success": False,
+                    "error": f"Gate at ({target_x}, {target_y}) cannot have more than {max_fanins} incoming connections.",
+                }
+            )
 
         # Create a connection from source_node to target_node
         route_path(layout, [(source_x, source_y), (target_x, target_y)])
 
-        return jsonify({'success': True})
+        return jsonify({"success": True})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/check_design_rules', methods=['POST'])
+@app.route("/check_design_rules", methods=["POST"])
 def check_design_rules():
     try:
-        session_id = session['session_id']
+        session_id = session["session_id"]
         layout = layouts.get(session_id)
         if not layout:
-            return jsonify({'success': False, 'error': 'Layout not found.'})
+            return jsonify({"success": False, "error": "Layout not found."})
 
         # Call your design rule checking function
         violations = check_design_rules_function(layout)  # Replace with your actual function
 
-        return jsonify({'success': True, 'violations': violations})
+        return jsonify({"success": True, "violations": violations})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/export_layout', methods=['GET'])
+@app.route("/export_layout", methods=["GET"])
 def export_layout():
     try:
-        session_id = session.get('session_id')
+        session_id = session.get("session_id")
         layout = layouts.get(session_id)
 
         if not layout:
-            return jsonify({'success': False, 'error': 'Layout not found.'})
+            return jsonify({"success": False, "error": "Layout not found."})
 
         # Serialize the layout to XML file
         file_path = "layout.fgl"
         write_fgl_layout(layout, file_path)
 
         # Send the XML file as an attachment
-        return send_file(file_path, as_attachment=True,
-                         mimetype='application/xml',
-                         download_name='layout.xml')
+        return send_file(file_path, as_attachment=True, mimetype="application/xml", download_name="layout.xml")
 
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({"success": False, "error": str(e)})
     finally:
         # Clean up the file if it exists
         if os.path.exists(file_path):
             os.remove(file_path)
 
 
-@app.route('/import_layout', methods=['POST'])
+@app.route("/import_layout", methods=["POST"])
 def import_layout():
     try:
         # Get the uploaded file with the key 'file'
-        file = request.files.get('file')
+        file = request.files.get("file")
         if not file:
-            return jsonify({'success': False, 'error': 'No file provided.'})
+            return jsonify({"success": False, "error": "No file provided."})
 
         # Create a temporary file to save the uploaded XML file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.xml') as temp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xml") as temp_file:
             file.save(temp_file.name)  # Save the uploaded file to the temporary file
 
         # Call the function with the temporary file's name (path)
@@ -308,25 +331,25 @@ def import_layout():
             os.remove(temp_file.name)
 
         # Override the current layout with the imported layout
-        session_id = session['session_id']
+        session_id = session["session_id"]
         layouts[session_id] = layout
 
-        return jsonify({'success': True})
+        return jsonify({"success": True})
 
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/get_layout', methods=['GET'])
+@app.route("/get_layout", methods=["GET"])
 def get_layout():
     try:
-        session_id = session['session_id']
+        session_id = session["session_id"]
         layout = layouts.get(session_id)
         if not layout:
-            return jsonify({'success': False, 'error': 'Layout not found.'})
+            return jsonify({"success": False, "error": "Layout not found."})
 
         # Extract layout data
-        layout_dimensions = {'x': layout.x() + 1, 'y': layout.y() + 1}
+        layout_dimensions = {"x": layout.x() + 1, "y": layout.y() + 1}
         gates = []
 
         for x in range(layout.x() + 1):
@@ -334,47 +357,43 @@ def get_layout():
                 node = layout.get_node((x, y))
                 if node:
                     if layout.is_pi(node):
-                        gate_type = 'pi'
+                        gate_type = "pi"
                     elif layout.is_po(node):
-                        gate_type = 'po'
+                        gate_type = "po"
                     elif layout.is_wire(node):
-                        gate_type = 'buf'
+                        gate_type = "buf"
                     elif layout.is_inv(node):
-                        gate_type = 'inv'
+                        gate_type = "inv"
                     elif layout.is_and(node):
-                        gate_type = 'and'
+                        gate_type = "and"
                     elif layout.is_nand(node):
-                        gate_type = 'nand'
+                        gate_type = "nand"
                     elif layout.is_or(node):
-                        gate_type = 'or'
+                        gate_type = "or"
                     elif layout.is_nor(node):
-                        gate_type = 'nor'
+                        gate_type = "nor"
                     elif layout.is_xor(node):
-                        gate_type = 'xor'
+                        gate_type = "xor"
                     elif layout.is_xnor(node):
-                        gate_type = 'xnor'
+                        gate_type = "xnor"
                     else:
                         raise Exception("Unsupported gate type")
 
-                    gate_info = {
-                        'x': x,
-                        'y': y,
-                        'type': gate_type,
-                        'connections': []
-                    }
+                    gate_info = {"x": x, "y": y, "type": gate_type, "connections": []}
                     # Get fanins (source nodes)
                     fanins = layout.fanins((x, y))
                     for fin in fanins:
-                        gate_info['connections'].append({'sourceX': fin.x, 'sourceY': fin.y})
+                        gate_info["connections"].append({"sourceX": fin.x, "sourceY": fin.y})
                     gates.append(gate_info)
-        return jsonify({'success': True, 'layoutDimensions': layout_dimensions, 'gates': gates})
+        return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({"success": False, "error": str(e)})
+
 
 def check_design_rules_function(layout):
     violations = gate_level_drvs(layout, print_report=True)
     return violations
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
