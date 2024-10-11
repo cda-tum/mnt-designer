@@ -11,7 +11,12 @@ from mnt.pyfiction import (
     route_path,
     write_fgl_layout,
     read_technology_network,
-    orthogonal, graph_oriented_layout_design, graph_oriented_layout_design_params,
+    orthogonal,
+    graph_oriented_layout_design,
+    graph_oriented_layout_design_params,
+    equivalence_checking,
+    equivalence_checking_stats,
+    eq_type,
 )
 
 app = Flask(__name__)
@@ -22,6 +27,7 @@ layouts = {}
 
 # In-memory storage for user networks
 networks = {}
+
 
 @app.route("/")
 def index():
@@ -75,11 +81,18 @@ def place_gate():
         # Enforce incoming signal constraints
         if gate_type == "pi":
             if params:
-                return jsonify({"success": False, "error": "PI gate cannot have inputs."})
+                return jsonify(
+                    {"success": False, "error": "PI gate cannot have inputs."}
+                )
             layout.create_pi("", (x, y))
         elif gate_type in ["buf", "inv", "po"]:
             if "first" not in params or "second" in params:
-                return jsonify({"success": False, "error": f"{gate_type.upper()} gate requires exactly one input."})
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"{gate_type.upper()} gate requires exactly one input.",
+                    }
+                )
             source_x = int(params["first"]["position"]["x"])
             source_y = int(params["first"]["position"]["y"])
             source_node = layout.get_node((source_x, source_y))
@@ -89,7 +102,12 @@ def place_gate():
             # Check if the gate already has inputs
             existing_fanins = layout.fanins((x, y))
             if existing_fanins:
-                return jsonify({"success": False, "error": f"Gate at ({x}, {y}) cannot have more than 1 input."})
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"Gate at ({x}, {y}) cannot have more than 1 input.",
+                    }
+                )
 
             # Determine allowed number of fanouts
             existing_fanouts = layout.fanouts((source_x, source_y))
@@ -118,7 +136,12 @@ def place_gate():
                 layout.create_buf(layout.make_signal(source_node), (x, y))
         elif gate_type in ["and", "or", "nor", "xor", "xnor"]:
             if "first" not in params or "second" not in params:
-                return jsonify({"success": False, "error": f"{gate_type.upper()} gate requires exactly two inputs."})
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"{gate_type.upper()} gate requires exactly two inputs.",
+                    }
+                )
             first_x = int(params["first"]["position"]["x"])
             first_y = int(params["first"]["position"]["y"])
             second_x = int(params["second"]["position"]["x"])
@@ -126,12 +149,19 @@ def place_gate():
             first_node = layout.get_node((first_x, first_y))
             second_node = layout.get_node((second_x, second_y))
             if not first_node or not second_node:
-                return jsonify({"success": False, "error": "One or both source gates not found."})
+                return jsonify(
+                    {"success": False, "error": "One or both source gates not found."}
+                )
 
             # Check if the gate already has inputs
             existing_fanins = layout.fanins((x, y))
             if len(existing_fanins) >= 2:
-                return jsonify({"success": False, "error": f"Gate at ({x}, {y}) cannot have more than 2 inputs."})
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"Gate at ({x}, {y}) cannot have more than 2 inputs.",
+                    }
+                )
 
             for existing_fanin in existing_fanins:
                 # Determine allowed number of fanouts
@@ -154,17 +184,39 @@ def place_gate():
                     )
 
             if gate_type == "and":
-                layout.create_and(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
+                layout.create_and(
+                    layout.make_signal(first_node),
+                    layout.make_signal(second_node),
+                    (x, y),
+                )
             elif gate_type == "or":
-                layout.create_or(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
+                layout.create_or(
+                    layout.make_signal(first_node),
+                    layout.make_signal(second_node),
+                    (x, y),
+                )
             elif gate_type == "nor":
-                layout.create_nor(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
+                layout.create_nor(
+                    layout.make_signal(first_node),
+                    layout.make_signal(second_node),
+                    (x, y),
+                )
             elif gate_type == "xor":
-                layout.create_xor(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
+                layout.create_xor(
+                    layout.make_signal(first_node),
+                    layout.make_signal(second_node),
+                    (x, y),
+                )
             elif gate_type == "xnor":
-                layout.create_xnor(layout.make_signal(first_node), layout.make_signal(second_node), (x, y))
+                layout.create_xnor(
+                    layout.make_signal(first_node),
+                    layout.make_signal(second_node),
+                    (x, y),
+                )
         else:
-            return jsonify({"success": False, "error": f"Unsupported gate type: {gate_type}"})
+            return jsonify(
+                {"success": False, "error": f"Unsupported gate type: {gate_type}"}
+            )
 
         print(layout)
         return jsonify({"success": True})
@@ -197,12 +249,18 @@ def delete_gate():
             for outgoing_tile in outgoing_tiles:
                 # Get the other input signals, if any
                 incoming_tiles = layout.fanins(outgoing_tile)
-                incoming_tiles = [layout.get_node(inp) for inp in incoming_tiles if inp != (x, y)]
-                layout.move_node(layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles)
+                incoming_tiles = [
+                    layout.get_node(inp) for inp in incoming_tiles if inp != (x, y)
+                ]
+                layout.move_node(
+                    layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles
+                )
 
             return jsonify({"success": True})
         else:
-            return jsonify({"success": False, "error": "Gate not found at the specified position."})
+            return jsonify(
+                {"success": False, "error": "Gate not found at the specified position."}
+            )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -283,12 +341,68 @@ def check_design_rules():
         if not layout:
             return jsonify({"success": False, "error": "Layout not found."})
 
-        # Call your design rule checking function
-        violations = check_design_rules_function(layout)  # Replace with your actual function
+            # Call your design rule checking function
+        warnings, errors = check_design_rules_function(layout)
 
-        return jsonify({"success": True, "violations": violations})
+        return jsonify({"success": True, "errors": errors, "warnings": warnings}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+def check_design_rules_function(layout):
+    warnings, errors = gate_level_drvs(layout, print_report=True)
+    return warnings, errors
+
+
+@app.route("/check_equivalence", methods=["POST"])
+def check_equivalence():
+    try:
+        session_id = session.get("session_id")
+        if not session_id:
+            return jsonify({"success": False, "error": "Session not found."}), 400
+
+        layout = layouts.get(session_id)
+        if not layout:
+            return jsonify({"success": False, "error": "Layout not found."}), 404
+
+        network = networks.get(session_id)
+        if not network:
+            return jsonify({"success": False, "error": "Network not found."}), 404
+
+        # Call your design rule checking function
+        equivalence, counter_example = check_equivalence_function(layout, network)
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "equivalence": equivalence,
+                    "counter_example": counter_example,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def check_equivalence_function(layout, network):
+    stats = equivalence_checking_stats()
+    eq = equivalence_checking(layout, network, stats)
+
+    if eq == eq_type.STRONG:
+        equivalence = "STRONG"
+        counter_example = None  # No counter example needed
+    elif eq == eq_type.WEAK:
+        equivalence = "WEAK"
+        counter_example = None  # No counter example needed
+    else:
+        equivalence = "NO"
+        counter_example = stats.counter_example
+        print(counter_example)
+
+    return equivalence, counter_example
 
 
 @app.route("/export_layout", methods=["GET"])
@@ -305,7 +419,12 @@ def export_layout():
         write_fgl_layout(layout, file_path)
 
         # Send the XML file as an attachment
-        return send_file(file_path, as_attachment=True, mimetype="application/xml", download_name="layout.xml")
+        return send_file(
+            file_path,
+            as_attachment=True,
+            mimetype="application/xml",
+            download_name="layout.xml",
+        )
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
@@ -355,14 +474,12 @@ def get_layout():
         # Extract layout data
         layout_dimensions, gates = layout.get_layout_dimensions(layout)
 
-        return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
+        return jsonify(
+            {"success": True, "layoutDimensions": layout_dimensions, "gates": gates}
+        )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-
-def check_design_rules_function(layout):
-    violations = gate_level_drvs(layout, print_report=True)
-    return violations
 
 @app.route("/save_verilog_code", methods=["POST"])
 def save_verilog_code():
@@ -372,7 +489,7 @@ def save_verilog_code():
 
         # Create a temporary file to save the uploaded Verilog code
         with tempfile.NamedTemporaryFile(delete=False, suffix=".v") as temp_file:
-            temp_file.write(code.encode('utf-8'))
+            temp_file.write(code.encode("utf-8"))
             temp_file.flush()  # Ensure all data is written to disk
 
         # Call the function with the temporary file's name (path)
@@ -399,11 +516,11 @@ def import_verilog_code():
             return jsonify({"success": False, "error": "No file provided."})
 
         # Read the file content
-        code = uploaded_file.read().decode('utf-8')
+        code = uploaded_file.read().decode("utf-8")
 
         # Create a temporary file to save the uploaded Verilog code
         with tempfile.NamedTemporaryFile(delete=False, suffix=".v") as temp_file:
-            temp_file.write(code.encode('utf-8'))
+            temp_file.write(code.encode("utf-8"))
             temp_file.flush()  # Ensure all data is written to disk
 
         # Call the function with the temporary file's name (path)
@@ -430,10 +547,20 @@ def apply_orthogonal():
         session_id = session["session_id"]
         network = networks.get(session_id)
         if not network:
-            return jsonify({"success": False, "error": "Network not found. Please save or import Verilog code first."})
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Network not found. Please save or import Verilog code first.",
+                }
+            )
 
         if network.size() > 500:
-            return jsonify({"success": False, "error": "Network size exceeds 500 nodes and the resulting layout can not be rendered."})
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Network size exceeds 500 nodes and the resulting layout can not be rendered.",
+                }
+            )
 
         # Apply the orthogonal function
         layout = orthogonal(network)
@@ -441,7 +568,9 @@ def apply_orthogonal():
 
         layout_dimensions, gates = get_layout_information(layout)
 
-        return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
+        return jsonify(
+            {"success": True, "layoutDimensions": layout_dimensions, "gates": gates}
+        )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -452,10 +581,17 @@ def apply_gold():
         session_id = session["session_id"]
         network = networks.get(session_id)
         if not network:
-            return jsonify({"success": False, "error": "Network not found. Please save or import Verilog code first."})
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Network not found. Please save or import Verilog code first.",
+                }
+            )
 
         if network.size() > 150:
-            return jsonify({"success": False, "error": "Network size exceeds 200 nodes."})
+            return jsonify(
+                {"success": False, "error": "Network size exceeds 200 nodes."}
+            )
 
         # Apply gold
         params = graph_oriented_layout_design_params()
@@ -465,9 +601,12 @@ def apply_gold():
 
         layout_dimensions, gates = get_layout_information(layout)
 
-        return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
+        return jsonify(
+            {"success": True, "layoutDimensions": layout_dimensions, "gates": gates}
+        )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
 
 def get_layout_information(layout):
     layout_dimensions = {"x": layout.x() + 1, "y": layout.y() + 1}
@@ -504,7 +643,9 @@ def get_layout_information(layout):
                 # Get fanins (source nodes)
                 fanins = layout.fanins((x, y))
                 for fin in fanins:
-                    gate_info["connections"].append({"sourceX": fin.x, "sourceY": fin.y})
+                    gate_info["connections"].append(
+                        {"sourceX": fin.x, "sourceY": fin.y}
+                    )
                 gates.append(gate_info)
     return layout_dimensions, gates
 

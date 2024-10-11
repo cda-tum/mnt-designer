@@ -1032,7 +1032,7 @@ $(document).ready(() => {
     });
   }
 
-  // Check Design Rules
+// Check Design Rules
   $("#check-rules-button").on("click", function () {
     $.ajax({
       url: "/check_design_rules",
@@ -1041,42 +1041,151 @@ $(document).ready(() => {
       data: JSON.stringify({}),
       success: (data) => {
         if (data.success) {
-          displayViolations(data.violations);
+          displayViolations(data.errors, data.warnings);
         } else {
           updateMessageArea(
-            "Failed to check design rules: " + data.error,
-            "danger",
+              "Failed to check design rules: " + data.error,
+              "danger",
           );
         }
       },
       error: (jqXHR, textStatus, errorThrown) => {
         updateMessageArea(
-          "Error communicating with the server: " + errorThrown,
-          "danger",
+            "Error communicating with the server: " + errorThrown,
+            "danger",
         );
       },
     });
   });
 
-  function displayViolations(violations) {
+  function displayViolations(errors, warnings) {
     const violationsArea = $("#violations-area");
     const violationsList = $("#violations-list");
 
-    // Clear previous violations
+    // Clear any existing content
     violationsList.empty();
 
-    if (violations.length === 0) {
-      violationsArea.removeClass("alert-warning").addClass("alert-success");
-      violationsArea.find("h5").text("No Design Rule Violations Found.");
-      violationsArea.removeClass("d-none");
+    // Initialize flags to check presence
+    const hasErrors = errors > 0;
+    const hasWarnings = warnings > 0;
+
+    // Determine the appropriate alert class and heading
+    if (hasErrors && hasWarnings) {
+      // Both Errors and Warnings
+      violationsArea
+          .removeClass("alert-success alert-warning")
+          .addClass("alert-danger");
+      violationsArea.find("h5").text("Design Rule Errors and Warnings:");
+
+      // Append Errors with Label
+      violationsList.append(`
+      <li>
+        <i class="fas fa-exclamation-circle text-danger me-2" aria-hidden="true"></i>
+        <strong>Errors:</strong> ${errors}
+      </li>
+    `);
+
+      // Append Warnings with Label
+      violationsList.append(`
+      <li>
+        <i class="fas fa-exclamation-triangle text-warning me-2" aria-hidden="true"></i>
+        <strong>Warnings:</strong> ${warnings}
+      </li>
+    `);
+    } else if (hasErrors) {
+      // Only Errors
+      violationsArea
+          .removeClass("alert-success alert-warning")
+          .addClass("alert-danger");
+      violationsArea.find("h5").text("Design Rule Errors:");
+
+      // Append Errors with Label
+      violationsList.append(`
+      <li>
+        <i class="fas fa-exclamation-circle text-danger me-2" aria-hidden="true"></i>
+        <strong>Errors:</strong> ${errors}
+      </li>
+    `);
+    } else if (hasWarnings) {
+      // Only Warnings
+      violationsArea
+          .removeClass("alert-success alert-danger")
+          .addClass("alert-warning");
+      violationsArea.find("h5").text("Design Rule Warnings:");
+
+      // Append Warnings with Label
+      violationsList.append(`
+      <li>
+        <i class="fas fa-exclamation-triangle text-warning me-2" aria-hidden="true"></i>
+        <strong>Warnings:</strong> ${warnings}
+      </li>
+    `);
     } else {
-      violationsArea.removeClass("alert-success").addClass("alert-warning");
-      violationsArea.find("h5").text("Design Rule Violations:");
-      violations.forEach((violation) => {
-        violationsList.append(`<li>${violation}</li>`);
-      });
-      violationsArea.removeClass("d-none");
+      // No Violations
+      violationsArea
+          .removeClass("alert-warning alert-danger")
+          .addClass("alert-success");
+      violationsArea.find("h5").text("No Design Rule Violations Found.");
+
+      // Append Success Message
+      violationsList.append(`
+      <li>
+        <i class="fas fa-check-circle text-success me-2" aria-hidden="true"></i>
+        All design rules are satisfied.
+      </li>
+    `);
     }
+
+    // Show the Violations Area
+    violationsArea.removeClass("d-none");
+  }
+
+  // Check Equivalence
+  $("#check-equivalence-button").on("click", function () {
+    $.ajax({
+      url: "/check_equivalence",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({}),
+      success: (data) => {
+        if (data.success) {
+          displayEquivalence(data.equivalence, data.counter_example);
+        } else {
+          updateMessageArea(
+              "Failed to check equivalence: " + data.error,
+              "danger",
+          );
+        }
+      },
+      error: (jqXHR, textStatus, errorThrown) => {
+        updateMessageArea(
+            "Error communicating with the server: " + errorThrown,
+            "danger",
+        );
+      },
+    });
+  });
+
+  function displayEquivalence(equivalence, counter_example) {
+    const equivalenceArea = $("#equivalence-area");
+
+    // Clear any existing content except the heading
+    equivalenceArea.find("h5").nextAll().remove();
+
+    if (equivalence === "STRONG" || equivalence === "WEAK") {
+      equivalenceArea.removeClass("alert-warning").addClass("alert-success");
+      equivalenceArea.find("h5").text("Network and Layout are equivalent.");
+      equivalenceArea.append(`<p>Equivalence Type: <strong>${equivalence}</strong></p>`);
+    } else {
+      equivalenceArea.removeClass("alert-success").addClass("alert-warning");
+      equivalenceArea.find("h5").text("Network and Layout are not equivalent.");
+      if (counter_example.length !== 0) {
+        equivalenceArea.append(`<p>Counter Example: ${counter_example}</p>`);
+      } else {
+        equivalenceArea.append(`<p>No counter example provided. (Network or Layout has DRVs)</p>`);
+      }
+    }
+    equivalenceArea.removeClass("d-none");
   }
 
   // Export Layout

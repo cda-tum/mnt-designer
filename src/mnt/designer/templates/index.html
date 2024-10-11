@@ -100,7 +100,7 @@
           data-bs-placement="top"
           title="Place a Primary Input gate"
         >
-          <i class="fas fa-play"></i> PI
+          <i class="fas fa-sign-in-alt"></i> PI
         </button>
         <button
           type="button"
@@ -110,7 +110,7 @@
           data-bs-placement="top"
           title="Place a Primary Output gate"
         >
-          <i class="fas fa-stop"></i> PO
+          <i class="fas fa-sign-out-alt"></i> PO
         </button>
         <button
           type="button"
@@ -130,7 +130,7 @@
           data-bs-placement="top"
           title="Place a Buffer gate"
         >
-          <i class="fas fa-long-arrow-alt-right"></i> BUF
+          <i class="fas fa-arrow-right"></i> BUF
         </button>
         <button
           type="button"
@@ -230,7 +230,10 @@
         >
           <i class="fas fa-check-circle"></i> Check Design Rules
         </button>
-        <!-- Zoom Controls -->
+        <!-- Check Equivalence Button -->
+        <button type="button" id="check-equivalence-button" class="btn btn-outline-info">
+          <i class="fas fa-balance-scale"></i> Check Equivalence
+        </button>
       </div>
       <!-- Message Area -->
       <div id="message-area" class="alert alert-info text-center" role="alert">
@@ -251,6 +254,10 @@
       <div id="violations-area" class="alert alert-warning d-none" role="alert">
         <h5>Design Rule Violations:</h5>
         <ul id="violations-list"></ul>
+      </div>
+      <!-- Equivalence Area -->
+      <div id="equivalence-area" class="alert alert-warning d-none" role="alert">
+        <h5>Equivalence:</h5>
       </div>
       <div class="row">
         <div class="col-md-4">
