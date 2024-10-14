@@ -322,6 +322,39 @@ $(document).ready(() => {
     });
   });
 
+  // Optimization Button Click Event
+  $("#optimization-button").on("click", function () {
+    // Disable the button to prevent multiple clicks
+    $("#optimization-button").prop("disabled", true);
+    updateMessageArea("Optimizing layout...", "info");
+
+    $.ajax({
+      url: "/apply_optimization", // Backend route for the Gold algorithm
+      type: "POST",
+      contentType: "application/json",
+      success: function (data) {
+        $("#optimization-button").prop("disabled", false);
+        if (data.success) {
+          // Update the layout with the new data after the optimization algorithm is applied
+          updateLayout(data.layoutDimensions, data.gates);
+          updateMessageArea("Layout was optimized successfully.", "success");
+        } else {
+          updateMessageArea(
+            "Failed to optimize layout: " + data.error,
+            "danger",
+          );
+        }
+      },
+      error: function (jqXHR, textStatus, errorThrown) {
+        $("#optimization-button").prop("disabled", false);
+        updateMessageArea(
+          "Error optimizing layout: " + errorThrown,
+          "danger",
+        );
+      },
+    });
+  });
+
   // Trigger file input when the import verilog button is clicked
   $("#import-verilog-button").on("click", function () {
     $("#import-verilog-file-input").click(); // Trigger file input dialog

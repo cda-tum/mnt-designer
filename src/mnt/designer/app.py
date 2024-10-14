@@ -17,6 +17,7 @@ from mnt.pyfiction import (
     equivalence_checking,
     equivalence_checking_stats,
     eq_type,
+    post_layout_optimization,
 )
 
 app = Flask(__name__)
@@ -721,6 +722,32 @@ def apply_gold():
         params = graph_oriented_layout_design_params()
         params.timeout = 1000
         layout = graph_oriented_layout_design(network, params)
+        layouts[session_id] = layout  # Update the layout in the session
+
+        layout_dimensions, gates = get_layout_information(layout)
+
+        return jsonify(
+            {"success": True, "layoutDimensions": layout_dimensions, "gates": gates}
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/apply_optimization", methods=["POST"])
+def apply_optimization():
+    try:
+        session_id = session["session_id"]
+        layout = layouts.get(session_id)
+
+        if not layout:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Layout not found. Please create a layout first",
+                }
+            )
+
+        post_layout_optimization(layout)
         layouts[session_id] = layout  # Update the layout in the session
 
         layout_dimensions, gates = get_layout_information(layout)
