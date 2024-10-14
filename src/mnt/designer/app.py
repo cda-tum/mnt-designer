@@ -529,7 +529,7 @@ def get_bounding_box():
         session_id = session["session_id"]
         layout = layouts.get(session_id)
         if not layout:
-            return jsonify({"success": False, "error": "Layout not found."})
+            return jsonify({"success": True, "max_x": 0, "max_y": 0})
 
         # Extract layout data
         _, max_coord = layout.bounding_box_2d()
