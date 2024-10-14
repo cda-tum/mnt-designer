@@ -28,6 +28,9 @@ layouts = {}
 # In-memory storage for user networks
 networks = {}
 
+# In-memory storage for user verilog
+verilogs = {}
+
 
 @app.route("/")
 def index():
@@ -58,6 +61,46 @@ def create_layout():
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/reset_layout", methods=["POST"])
+def reset_layout():
+    try:
+        data = request.json
+        x = int(data.get("x")) - 1
+        y = int(data.get("y")) - 1
+        z = 0  # Default Z value
+        layout = cartesian_gate_layout((0, 0, 0), "2DDWave", "Layout")
+
+        # Resize the existing layout
+        layout.resize((x, y, z))
+
+        session_id = session["session_id"]
+        layouts[session_id] = layout
+
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/reset_editor", methods=["POST"])
+def reset_editor():
+    try:
+        session_id = session.get("session_id")
+        if not session_id:
+            return jsonify({"success": False, "error": "Session ID not found."}), 400
+
+        # Define the default Verilog code
+        default_verilog_code = ""
+
+        # Reset the editor's code to the default
+        verilogs[session_id] = default_verilog_code
+        networks[session_id] = None
+
+        return jsonify({"success": True, "code": default_verilog_code}), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/place_gate", methods=["POST"])
@@ -472,13 +515,50 @@ def get_layout():
             return jsonify({"success": False, "error": "Layout not found."})
 
         # Extract layout data
-        layout_dimensions, gates = layout.get_layout_dimensions(layout)
-
+        layout_dimensions, gates = get_layout_information(layout)
         return jsonify(
             {"success": True, "layoutDimensions": layout_dimensions, "gates": gates}
         )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/get_bounding_box", methods=["GET"])
+def get_bounding_box():
+    try:
+        session_id = session["session_id"]
+        layout = layouts.get(session_id)
+        if not layout:
+            return jsonify({"success": False, "error": "Layout not found."})
+
+        # Extract layout data
+        _, max_coord = layout.bounding_box_2d()
+        return jsonify({"success": True, "max_x": max_coord.x, "max_y": max_coord.y})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/get_verilog_code", methods=["GET"])
+def get_verilog_code():
+    try:
+        # Ensure the user has a session_id
+        if "session_id" not in session:
+            return jsonify({"success": False, "error": "Session not found."}), 400
+
+        session_id = session["session_id"]
+
+        # Retrieve the Verilog code for the current session
+        code = verilogs.get(session_id)
+
+        if code is None:
+            return jsonify({"success": False, "error": "Verilog code not found."})
+
+        # Return the Verilog code
+        return jsonify({"success": True, "code": code}), 200
+
+    except Exception as e:
+        # Handle unexpected errors
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/save_verilog_code", methods=["POST"])
@@ -495,12 +575,15 @@ def save_verilog_code():
         # Call the function with the temporary file's name (path)
         try:
             network = read_technology_network(temp_file.name)
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)})
         finally:
             # Clean up: delete the temporary file after processing
             os.remove(temp_file.name)
 
         session_id = session["session_id"]
         networks[session_id] = network
+        verilogs[session_id] = code
 
         return jsonify({"success": True})
     except Exception as e:
@@ -533,6 +616,7 @@ def import_verilog_code():
         # Store the network in the session
         session_id = session["session_id"]
         networks[session_id] = network
+        verilogs[session_id] = code
 
         # Return the code to be displayed in the editor
         return jsonify({"success": True, "code": code})
@@ -554,6 +638,14 @@ def apply_orthogonal():
                 }
             )
 
+        if network.size() < 3:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Network size is less than 3, indicating that not gates are present.",
+                }
+            )
+
         if network.size() > 500:
             return jsonify(
                 {
@@ -562,8 +654,22 @@ def apply_orthogonal():
                 }
             )
 
-        # Apply the orthogonal function
-        layout = orthogonal(network)
+        for po in network.pos():
+            for fanin in network.fanins(po):
+                if fanin in (0, 1):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": f"Network has an unconnected PO: {network.get_output_name(network.po_index(po))}.",
+                        }
+                    )
+
+        try:
+            # Apply the orthogonal function
+            layout = orthogonal(network)
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)})
+
         layouts[session_id] = layout  # Update the layout in the session
 
         layout_dimensions, gates = get_layout_information(layout)
@@ -588,10 +694,28 @@ def apply_gold():
                 }
             )
 
+        if network.size() < 3:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Network size is less than 3, indicating that not gates are present.",
+                }
+            )
+
         if network.size() > 150:
             return jsonify(
                 {"success": False, "error": "Network size exceeds 200 nodes."}
             )
+
+        for po in network.pos():
+            for fanin in network.fanins(po):
+                if fanin in (0, 1):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": f"Network has an unconnected PO: {network.get_output_name(network.po_index(po))}.",
+                        }
+                    )
 
         # Apply gold
         params = graph_oriented_layout_design_params()

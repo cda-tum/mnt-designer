@@ -4,6 +4,7 @@ $(document).ready(() => {
   let selectedSourceNode = null;
   let selectedSourceNode2 = null;
   let cy = null;
+  let valid_verilog = false;
   let layoutDimensions = { x: 0, y: 0 };
   const tileColors = {
     1: "#ffffff", // White
@@ -27,26 +28,36 @@ $(document).ready(() => {
   }
 
   // Save code to backend on change with debounce
-  editor.session.on('change', debounce(function () {
-    let code = editor.getValue();
-    $.ajax({
-      url: "/save_verilog_code",
-      type: "POST",
-      contentType: "application/json",
-      data: JSON.stringify({ code: code }),
-      success: function(data) {
-        if (!data.success) {
-          updateMessageArea("Failed to save verilog: " + data.error, "danger");
-        }
-        else {
-          updateMessageArea("Updated verilog", "info");
-        }
-      },
-      error: function(jqXHR, textStatus, errorThrown) {
-        updateMessageArea("Error communicating with the server: " + errorThrown, "danger");
-      }
-    });
-  }, 1000));
+  editor.session.on(
+    "change",
+    debounce(function () {
+      let code = editor.getValue();
+      $.ajax({
+        url: "/save_verilog_code",
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({ code: code }),
+        success: function (data) {
+          if (!data.success) {
+            updateMessageArea(
+              "Failed to save verilog: " + data.error,
+              "danger",
+            );
+            valid_verilog = false;
+          } else {
+            updateMessageArea("Updated verilog", "info");
+            valid_verilog = true;
+          }
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          updateMessageArea(
+            "Error communicating with the server: " + errorThrown,
+            "danger",
+          );
+        },
+      });
+    }, 1000),
+  );
 
   // Initialize Cytoscape instance
   function initializeCytoscape() {
@@ -98,13 +109,13 @@ $(document).ready(() => {
       layout: {
         name: "preset",
       },
-      userZoomingEnabled: true,  // Allow zooming
-      userPanningEnabled: true,  // Allow panning
-      wheelSensitivity: 0.5,     // Adjust zoom speed (optional)
+      userZoomingEnabled: true, // Allow zooming
+      userPanningEnabled: true, // Allow panning
+      wheelSensitivity: 0.5, // Adjust zoom speed (optional)
       boxSelectionEnabled: false,
-      panningEnabled: true,  // Enable panning
-      autoungrabify: true,      // Nodes cannot be grabbed (dragged)
-      autounselectify: true,    // Nodes cannot be selected
+      panningEnabled: true, // Enable panning
+      autoungrabify: true, // Nodes cannot be grabbed (dragged)
+      autounselectify: true, // Nodes cannot be selected
     });
 
     // Disable node dragging
@@ -151,6 +162,9 @@ $(document).ready(() => {
   // Load the layout from the backend
   loadLayout();
 
+  // Load the editor from the backend
+  loadEditor();
+
   function updateLayout(layoutDimensions, gates) {
     // Clear existing elements
     cy.elements().remove();
@@ -186,18 +200,18 @@ $(document).ready(() => {
   cy.nodes().ungrabify();
 
   // Panning using arrow keys
-  document.addEventListener('keydown', function(event) {
+  document.addEventListener("keydown", function (event) {
     const panAmount = 50; // Adjust this value to change pan speed
-    if (event.key === 'ArrowLeft') {
+    if (event.key === "ArrowLeft") {
       cy.panBy({ x: panAmount, y: 0 });
       event.preventDefault(); // Prevent the default scrolling behavior
-    } else if (event.key === 'ArrowRight') {
+    } else if (event.key === "ArrowRight") {
       cy.panBy({ x: -panAmount, y: 0 });
       event.preventDefault();
-    } else if (event.key === 'ArrowUp') {
+    } else if (event.key === "ArrowUp") {
       cy.panBy({ x: 0, y: panAmount });
       event.preventDefault();
-    } else if (event.key === 'ArrowDown') {
+    } else if (event.key === "ArrowDown") {
       cy.panBy({ x: 0, y: -panAmount });
       event.preventDefault();
     }
@@ -208,7 +222,7 @@ $(document).ready(() => {
     let zoomLevel = cy.zoom();
     cy.zoom({
       level: zoomLevel * 1.2, // Increase zoom by 20%
-      renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 }  // Zoom towards the center
+      renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 }, // Zoom towards the center
     });
   });
 
@@ -217,13 +231,13 @@ $(document).ready(() => {
     let zoomLevel = cy.zoom();
     cy.zoom({
       level: zoomLevel * 0.8, // Decrease zoom by 20%
-      renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 }  // Zoom towards the center
+      renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 }, // Zoom towards the center
     });
   });
 
   // Reset Zoom Button
   $("#reset-zoom").on("click", function () {
-    cy.fit();  // Reset zoom to fit the entire layout in view
+    cy.fit(); // Reset zoom to fit the entire layout in view
   });
 
   // Ortho Button Click Handler
@@ -231,6 +245,12 @@ $(document).ready(() => {
     // Disable the button to prevent multiple clicks
     $("#ortho-button").prop("disabled", true);
     updateMessageArea("Applying ortho...", "info");
+
+    if (!valid_verilog) {
+      $("#ortho-button").prop("disabled", false);
+      updateMessageArea("Verilog not valid", "danger");
+      return;
+    }
 
     $.ajax({
       url: "/apply_orthogonal",
@@ -242,36 +262,63 @@ $(document).ready(() => {
         if (data.success) {
           // Update the layout with the new data
           updateLayout(data.layoutDimensions, data.gates);
-          updateMessageArea("Created layout with ortho successfully.", "success");
+          updateMessageArea(
+            "Created layout with ortho successfully.",
+            "success",
+          );
         } else {
-          updateMessageArea("Failed to create layout using ortho: " + data.error, "danger");
+          updateMessageArea(
+            "Failed to create layout using ortho: " + data.error,
+            "danger",
+          );
         }
       },
       error: (jqXHR, textStatus, errorThrown) => {
         $("#ortho-button").prop("disabled", false); // Re-enable button
-        updateMessageArea("Error communicating with the server: " + errorThrown, "danger");
+        updateMessageArea(
+          "Error communicating with the server: " + errorThrown,
+          "danger",
+        );
       },
     });
   });
 
   // Gold Button Click Event
   $("#gold-button").on("click", function () {
+    // Disable the button to prevent multiple clicks
+    $("#gold-button").prop("disabled", true);
+    updateMessageArea("Applying gold...", "info");
+
+    if (!valid_verilog) {
+      $("#gold-button").prop("disabled", false);
+      updateMessageArea("Verilog not valid", "danger");
+      return;
+    }
+
     $.ajax({
-      url: "/apply_gold",  // Backend route for the Gold algorithm
+      url: "/apply_gold", // Backend route for the Gold algorithm
       type: "POST",
       contentType: "application/json",
       success: function (data) {
+        $("#gold-button").prop("disabled", false);
         if (data.success) {
           // Update the layout with the new data after the Gold algorithm is applied
           updateLayout(data.layoutDimensions, data.gates);
           updateMessageArea("Gold algorithm applied successfully.", "success");
         } else {
-          updateMessageArea("Failed to apply gold algorithm: " + data.error, "danger");
+          updateMessageArea(
+            "Failed to create layout using ortho: " + data.error,
+            "danger",
+          );
         }
       },
       error: function (jqXHR, textStatus, errorThrown) {
-        updateMessageArea("Error applying gold algorithm: " + errorThrown, "danger");
-      }
+        $("#gold-button").prop("disabled", false);
+        updateMessageArea(
+          "Error applying gold algorithm: " + errorThrown,
+          "danger",
+        );
+      },
     });
   });
 
@@ -303,13 +350,20 @@ $(document).ready(() => {
             // Load the code into the editor
             editor.setValue(data.code, -1); // -1 moves cursor to the beginning
             updateMessageArea("Verilog code imported successfully.", "success");
+            valid_verilog = true;
           } else {
-            updateMessageArea("Failed to import Verilog code: " + data.error, "danger");
+            updateMessageArea(
+              "Failed to import Verilog code: " + data.error,
+              "danger",
+            );
           }
         },
         error: (jqXHR, textStatus, errorThrown) => {
           $("#import-verilog-button").prop("disabled", false); // Re-enable button
-          updateMessageArea("Error communicating with the server: " + errorThrown, "danger");
+          updateMessageArea(
+            "Error communicating with the server: " + errorThrown,
+            "danger",
+          );
         },
       });
     } else {
@@ -365,31 +419,195 @@ $(document).ready(() => {
       .text(message);
   }
 
-  // Handle layout creation
+  // Handle layout creation with bounding box check
   $("#layout-form").on("submit", function (event) {
     event.preventDefault();
+
     const xDimension = parseInt($("#x-dimension").val());
     const yDimension = parseInt($("#y-dimension").val());
 
-    // Send the new dimensions to the server
+    // Frontend validation to ensure positive integers
+    if (
+      isNaN(xDimension) ||
+      isNaN(yDimension) ||
+      xDimension <= 0 ||
+      yDimension <= 0
+    ) {
+      updateMessageArea(
+        "Please enter valid positive integers for dimensions.",
+        "warning",
+      );
+      return;
+    }
+
+    // Disable the resize button to prevent multiple submissions
+    $("#resize-button").prop("disabled", true);
+
+    // First, fetch the current bounding box from the backend
     $.ajax({
-      url: "/create_layout",
-      type: "POST",
-      contentType: "application/json",
-      data: JSON.stringify({ x: xDimension, y: yDimension }),
-      success: (data) => {
+      url: "/get_bounding_box",
+      type: "GET",
+      dataType: "json",
+      success: function (data) {
         if (data.success) {
-          createGridNodes(xDimension, yDimension);
-          updateMessageArea(
-            "Layout resized successfully. Existing gates are preserved.",
-            "success",
-          );
+          const currentMaxX = data.max_x + 1;
+          const currentMaxY = data.max_y + 1;
+
+          // Check if new dimensions are sufficient to accommodate existing gates
+          if (xDimension >= currentMaxX && yDimension >= currentMaxY) {
+            // Proceed to resize the layout
+            $.ajax({
+              url: "/create_layout",
+              type: "POST",
+              contentType: "application/json",
+              data: JSON.stringify({ x: xDimension, y: yDimension }),
+              success: function (data) {
+                if (data.success) {
+                  createGridNodes(xDimension, yDimension);
+                  updateMessageArea(
+                    "Layout resized successfully. Existing gates are preserved.",
+                    "success",
+                  );
+
+                  // Optionally, update form inputs to reflect the new dimensions
+                  $("#x-dimension").val(xDimension);
+                  $("#y-dimension").val(yDimension);
+                } else {
+                  updateMessageArea(
+                    "Failed to resize layout: " + data.error,
+                    "danger",
+                  );
+                }
+              },
+              error: function (jqXHR, textStatus, errorThrown) {
+                updateMessageArea(
+                  "Error communicating with the server: " + errorThrown,
+                  "danger",
+                );
+              },
+              complete: function () {
+                // Re-enable the resize button after the request completes
+                $("#resize-button").prop("disabled", false);
+              },
+            });
+          } else {
+            // New dimensions are smaller than existing gates
+            updateMessageArea(
+              `Cannot resize layout to (${xDimension}, ${yDimension}) because existing gates are placed up to (${currentMaxX}, ${currentMaxY}). Please remove some gates or choose larger dimensions.`,
+              "danger",
+            );
+            // Re-enable the resize button since the operation is blocked
+            $("#resize-button").prop("disabled", false);
+          }
         } else {
-          updateMessageArea("Failed to resize layout: " + data.error, "danger");
+          // Handle the case where data.success is false (application-level failure)
+          updateMessageArea(
+            "Failed to fetch bounding box: " + data.error,
+            "danger",
+          );
+          // Re-enable the resize button
+          $("#resize-button").prop("disabled", false);
         }
       },
-      error: (jqXHR, textStatus, errorThrown) => {
-        updateMessageArea("Error resizing layout: " + errorThrown, "danger");
+      error: function (jqXHR, textStatus, errorThrown) {
+        updateMessageArea(
+          "Error fetching current layout: " + errorThrown,
+          "danger",
+        );
+        // Re-enable the resize button in case of error
+        $("#resize-button").prop("disabled", false);
+      },
+    });
+  });
+
+  // Handle Reset Layout
+  $("#reset-layout-button").on("click", function () {
+    // Confirm the reset action with the user
+    if (
+      !confirm(
+        "Are you sure you want to reset the layout? This will remove all gates and connections.",
+      )
+    ) {
+      return; // Exit if the user cancels
+    }
+
+    // Disable the reset button to prevent multiple clicks
+    $("#reset-layout-button").prop("disabled", true);
+
+    // Show a loading message or spinner if desired
+    updateMessageArea("Resetting layout...", "info");
+
+    // Send a POST request to the /reset endpoint with current dimensions
+    $.ajax({
+      url: "/reset_layout",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({ x: layoutDimensions.x, y: layoutDimensions.y }),
+      success: function (data) {
+        if (data.success) {
+          // Reload the layout from the backend to reflect the reset
+          loadLayout();
+
+          updateMessageArea("Layout has been reset successfully.", "success");
+        } else {
+          updateMessageArea("Failed to reset layout: " + data.error, "danger");
+        }
+      },
+      error: function (jqXHR, textStatus, errorThrown) {
+        updateMessageArea(
+          "Error communicating with the server: " + errorThrown,
+          "danger",
+        );
+      },
+      complete: function () {
+        // Re-enable the reset button after the request completes
+        $("#reset-layout-button").prop("disabled", false);
+      },
+    });
+  });
+
+  // Handle Reset Editor
+  $("#reset-editor-button").on("click", function () {
+    // Confirm the reset action with the user
+    if (
+      !confirm(
+        "Are you sure you want to reset the editor? This will revert all changes made to the Verilog code.",
+      )
+    ) {
+      return; // Exit if the user cancels
+    }
+
+    // Disable the reset editor button to prevent multiple clicks
+    $("#reset-editor-button").prop("disabled", true);
+    // Optionally, disable other interactive elements or show a spinner
+    $("#spinner").removeClass("d-none");
+    updateMessageArea("Resetting editor...", "info");
+
+    // Send a POST request to the /reset_editor endpoint
+    $.ajax({
+      url: "/reset_editor",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({}),
+      success: function (data) {
+        if (data.success) {
+          // Set the editor content to the reset code
+          editor.setValue(data.code, -1); // -1 moves cursor to the start
+          updateMessageArea("Editor has been reset successfully.", "success");
+        } else {
+          updateMessageArea("Failed to reset editor: " + data.error, "danger");
+        }
+      },
+      error: function (jqXHR, textStatus, errorThrown) {
+        updateMessageArea(
+          "Error communicating with the server: " + errorThrown,
+          "danger",
+        );
+      },
+      complete: function () {
+        // Re-enable the reset editor button and hide the spinner
+        $("#reset-editor-button").prop("disabled", false);
+        $("#spinner").addClass("d-none");
       },
     });
   });
@@ -879,6 +1097,14 @@ $(document).ready(() => {
   }
 
   function deleteGate(node) {
+    const gateType = node.data("label").toLowerCase(); // Assuming labels are in uppercase like 'PI'
+
+    // Check if the gate is a PI
+    if (gateType === "pi") {
+      updateMessageArea("Cannot delete PI gates.", "danger");
+      return; // Exit the function to prevent deletion
+    }
+
     const x = node.data("x");
     const y = node.data("y");
 
@@ -1032,7 +1258,7 @@ $(document).ready(() => {
     });
   }
 
-// Check Design Rules
+  // Check Design Rules
   $("#check-rules-button").on("click", function () {
     $.ajax({
       url: "/check_design_rules",
@@ -1044,15 +1270,15 @@ $(document).ready(() => {
           displayViolations(data.errors, data.warnings);
         } else {
           updateMessageArea(
-              "Failed to check design rules: " + data.error,
-              "danger",
+            "Failed to check design rules: " + data.error,
+            "danger",
           );
         }
       },
       error: (jqXHR, textStatus, errorThrown) => {
         updateMessageArea(
-            "Error communicating with the server: " + errorThrown,
-            "danger",
+          "Error communicating with the server: " + errorThrown,
+          "danger",
         );
       },
     });
@@ -1073,8 +1299,8 @@ $(document).ready(() => {
     if (hasErrors && hasWarnings) {
       // Both Errors and Warnings
       violationsArea
-          .removeClass("alert-success alert-warning")
-          .addClass("alert-danger");
+        .removeClass("alert-success alert-warning")
+        .addClass("alert-danger");
       violationsArea.find("h5").text("Design Rule Errors and Warnings:");
 
       // Append Errors with Label
@@ -1095,8 +1321,8 @@ $(document).ready(() => {
     } else if (hasErrors) {
       // Only Errors
       violationsArea
-          .removeClass("alert-success alert-warning")
-          .addClass("alert-danger");
+        .removeClass("alert-success alert-warning")
+        .addClass("alert-danger");
       violationsArea.find("h5").text("Design Rule Errors:");
 
       // Append Errors with Label
@@ -1109,8 +1335,8 @@ $(document).ready(() => {
     } else if (hasWarnings) {
       // Only Warnings
       violationsArea
-          .removeClass("alert-success alert-danger")
-          .addClass("alert-warning");
+        .removeClass("alert-success alert-danger")
+        .addClass("alert-warning");
       violationsArea.find("h5").text("Design Rule Warnings:");
 
       // Append Warnings with Label
@@ -1123,8 +1349,8 @@ $(document).ready(() => {
     } else {
       // No Violations
       violationsArea
-          .removeClass("alert-warning alert-danger")
-          .addClass("alert-success");
+        .removeClass("alert-warning alert-danger")
+        .addClass("alert-success");
       violationsArea.find("h5").text("No Design Rule Violations Found.");
 
       // Append Success Message
@@ -1152,15 +1378,15 @@ $(document).ready(() => {
           displayEquivalence(data.equivalence, data.counter_example);
         } else {
           updateMessageArea(
-              "Failed to check equivalence: " + data.error,
-              "danger",
+            "Failed to check equivalence: " + data.error,
+            "danger",
           );
         }
       },
       error: (jqXHR, textStatus, errorThrown) => {
         updateMessageArea(
-            "Error communicating with the server: " + errorThrown,
-            "danger",
+          "Error communicating with the server: " + errorThrown,
+          "danger",
         );
       },
     });
@@ -1175,14 +1401,18 @@ $(document).ready(() => {
     if (equivalence === "STRONG" || equivalence === "WEAK") {
       equivalenceArea.removeClass("alert-warning").addClass("alert-success");
       equivalenceArea.find("h5").text("Network and Layout are equivalent.");
-      equivalenceArea.append(`<p>Equivalence Type: <strong>${equivalence}</strong></p>`);
+      equivalenceArea.append(
+        `<p>Equivalence Type: <strong>${equivalence}</strong></p>`,
+      );
     } else {
       equivalenceArea.removeClass("alert-success").addClass("alert-warning");
       equivalenceArea.find("h5").text("Network and Layout are not equivalent.");
       if (counter_example.length !== 0) {
         equivalenceArea.append(`<p>Counter Example: ${counter_example}</p>`);
       } else {
-        equivalenceArea.append(`<p>No counter example provided. (Network or Layout has DRVs)</p>`);
+        equivalenceArea.append(
+          `<p>No counter example provided. (Network or Layout has DRVs)</p>`,
+        );
       }
     }
     equivalenceArea.removeClass("d-none");
@@ -1284,6 +1514,10 @@ $(document).ready(() => {
           // Update gate labels after loading
           updateGateLabels();
 
+          // **Update the form input fields with the current layout dimensions**
+          $("#x-dimension").val(data.layoutDimensions.x);
+          $("#y-dimension").val(data.layoutDimensions.y);
+
           updateMessageArea("Layout loaded successfully.", "success");
         } else {
           updateMessageArea(
@@ -1293,6 +1527,35 @@ $(document).ready(() => {
         }
       },
       error: (jqXHR, textStatus, errorThrown) => {
+        updateMessageArea(
+          "Error communicating with the server: " + errorThrown,
+          "danger",
+        );
+      },
+    });
+  }
+
+  function loadEditor() {
+    $.ajax({
+      url: "/get_verilog_code", // Endpoint to fetch Verilog code
+      type: "GET",
+      dataType: "json",
+      success: function (data) {
+        if (data.success) {
+          // Load the Verilog code into the Ace Editor
+          editor.setValue(data.code, -1); // The second parameter moves the cursor to the start
+          updateMessageArea("Verilog code loaded successfully.", "success");
+          valid_verilog = true;
+        } else {
+          updateMessageArea(
+            "No existing Verilog code found. Please write new Verilog code.",
+            "info",
+          );
+          valid_verilog = false;
+        }
+      },
+      error: function (jqXHR, textStatus, errorThrown) {
+        // AJAX request failed
         updateMessageArea(
           "Error communicating with the server: " + errorThrown,
           "danger",
