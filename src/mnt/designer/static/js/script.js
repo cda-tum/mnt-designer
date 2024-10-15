@@ -132,7 +132,7 @@ $(document).ready(() => {
       switch (selectedGateType) {
         case "pi":
           selectedNode = node;
-          handlePlaceGate();
+          handleZeroInputGatePlacement();
           break;
         case "buf":
         case "inv":
@@ -192,6 +192,10 @@ $(document).ready(() => {
 
     // Update gate labels after loading
     updateGateLabels();
+
+    // **Update the form input fields with the current layout dimensions**
+    $("#x-dimension").val(layoutDimensions.x);
+    $("#y-dimension").val(layoutDimensions.y);
 
     // Fit the Cytoscape view to the new layout
     cy.fit();
@@ -715,29 +719,6 @@ $(document).ready(() => {
                 <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
             </svg>
         `;
-  }
-
-  // In handlePlaceGate function, check for PI gate
-  function handlePlaceGate() {
-    if (selectedNode.data("hasGate")) {
-      updateMessageArea("Cannot place a gate on a non-empty tile.", "danger");
-      selectedNode = null;
-      return;
-    }
-    if (selectedGateType !== "pi") {
-      updateMessageArea("Invalid action. Please select a PI gate.", "danger");
-      selectedNode = null;
-      return;
-    }
-    // Proceed to place PI gate
-    placeGate(selectedNode.data("x"), selectedNode.data("y"), "pi", {})
-      .then(() => {
-        updateMessageArea("PI gate placed successfully.", "success");
-        selectedNode = null;
-      })
-      .catch(() => {
-        selectedNode = null;
-      });
   }
 
   // Handle gate placement

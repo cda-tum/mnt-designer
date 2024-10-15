@@ -18,6 +18,7 @@ from mnt.pyfiction import (
     equivalence_checking_stats,
     eq_type,
     post_layout_optimization,
+    post_layout_optimization_params,
 )
 
 app = Flask(__name__)
@@ -47,7 +48,7 @@ def create_layout():
         data = request.json
         x = int(data.get("x")) - 1
         y = int(data.get("y")) - 1
-        z = 0  # Default Z value
+        z = 1  # Default Z value
 
         session_id = session["session_id"]
         layout = layouts.get(session_id)
@@ -70,7 +71,7 @@ def reset_layout():
         data = request.json
         x = int(data.get("x")) - 1
         y = int(data.get("y")) - 1
-        z = 0  # Default Z value
+        z = 1  # Default Z value
         layout = cartesian_gate_layout((0, 0, 0), "2DDWave", "Layout")
 
         # Resize the existing layout
@@ -738,6 +739,14 @@ def apply_optimization():
     try:
         session_id = session["session_id"]
         layout = layouts.get(session_id)
+        params = post_layout_optimization_params()
+
+        _, max_coord = layout.bounding_box_2d()
+        layout_size = (max_coord.x + 1) * (max_coord.y + 1)
+        if layout_size > 10000:
+            params.max_gate_relocations = 1
+        if layout_size > 100000:
+            params.max_gate_relocations = 0
 
         if not layout:
             return jsonify(
@@ -747,7 +756,7 @@ def apply_optimization():
                 }
             )
 
-        post_layout_optimization(layout)
+        post_layout_optimization(layout, params)
         layouts[session_id] = layout  # Update the layout in the session
 
         layout_dimensions, gates = get_layout_information(layout)
