@@ -140,7 +140,15 @@ def place_gate():
                 )
             source_x = int(params["first"]["position"]["x"])
             source_y = int(params["first"]["position"]["y"])
-            source_node = layout.get_node((source_x, source_y))
+            source_z = 0
+            if not layout.is_empty_tile((source_x, source_y, 1)):
+                if source_x < x:
+                    source_z = 0
+                elif source_y < y:
+                    source_z = 1
+                else:
+                    return jsonify({"success": False, "error": "Something went wrong."})
+            source_node = layout.get_node((source_x, source_y, source_z))
             if not source_node:
                 return jsonify({"success": False, "error": "Source gate not found."})
 
@@ -155,12 +163,12 @@ def place_gate():
                 )
 
             # Determine allowed number of fanouts
-            existing_fanouts = layout.fanouts((source_x, source_y))
+            existing_fanouts = layout.fanouts((source_x, source_y, source_z))
             num_fanouts = len(existing_fanouts)
 
             if layout.is_po(source_node):
                 max_fanouts = 0
-            elif layout.is_wire(source_node):
+            elif layout.is_wire(source_node) and not source_z == 1:
                 max_fanouts = 2
             else:
                 max_fanouts = 1
@@ -179,7 +187,7 @@ def place_gate():
                 layout.create_not(layout.make_signal(source_node), (x, y))
             elif gate_type == "buf":
                 layout.create_buf(layout.make_signal(source_node), (x, y))
-        elif gate_type in ["and", "or", "nor", "xor", "xnor"]:
+        elif gate_type in ["and", "or", "nor", "xor", "xnor", "bufc", "bufk"]:
             if "first" not in params or "second" not in params:
                 return jsonify(
                     {
@@ -189,10 +197,26 @@ def place_gate():
                 )
             first_x = int(params["first"]["position"]["x"])
             first_y = int(params["first"]["position"]["y"])
+            first_z = 0
+            if not layout.is_empty_tile((first_x, first_y, 1)):
+                if first_x < x:
+                    first_z = 0
+                elif first_y < y:
+                    first_z = 1
+                else:
+                    return jsonify({"success": False, "error": "Something went wrong."})
             second_x = int(params["second"]["position"]["x"])
             second_y = int(params["second"]["position"]["y"])
-            first_node = layout.get_node((first_x, first_y))
-            second_node = layout.get_node((second_x, second_y))
+            second_z = 0
+            if not layout.is_empty_tile((second_x, second_y, 1)):
+                if second_x < x:
+                    second_z = 0
+                elif second_y < y:
+                    second_z = 1
+                else:
+                    return jsonify({"success": False, "error": "Something went wrong."})
+            first_node = layout.get_node((first_x, first_y, first_z))
+            second_node = layout.get_node((second_x, second_y, second_z))
             if not first_node or not second_node:
                 return jsonify(
                     {"success": False, "error": "One or both source gates not found."}
@@ -258,6 +282,20 @@ def place_gate():
                     layout.make_signal(second_node),
                     (x, y),
                 )
+            elif gate_type == "bufc":
+                if first_x < second_x:
+                    layout.create_buf(layout.make_signal(first_node), (x, y, 0))
+                    layout.create_buf(layout.make_signal(second_node), (x, y, 1))
+                else:
+                    layout.create_buf(layout.make_signal(second_node), (x, y, 0))
+                    layout.create_buf(layout.make_signal(first_node), (x, y, 1))
+            elif gate_type == "bufk":
+                if first_x < second_x:
+                    layout.create_buf(layout.make_signal(second_node), (x, y, 0))
+                    layout.create_buf(layout.make_signal(first_node), (x, y, 1))
+                else:
+                    layout.create_buf(layout.make_signal(first_node), (x, y, 0))
+                    layout.create_buf(layout.make_signal(second_node), (x, y, 1))
         else:
             return jsonify(
                 {"success": False, "error": f"Unsupported gate type: {gate_type}"}
@@ -301,6 +339,25 @@ def delete_gate():
                     layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles
                 )
 
+            if not layout.is_empty_tile((x, y, 1)):
+                node = layout.get_node((x, y, 1))
+                if node:
+                    # Find all gates that use this node as an input signal
+                    outgoing_tiles = layout.fanouts((x, y, 1))
+                    layout.move_node(node, (x, y, 1), [])
+                    layout.clear_tile((x, y, 1))
+
+                    # Update signals for dependent nodes
+                    for outgoing_tile in outgoing_tiles:
+                        # Get the other input signals, if any
+                        incoming_tiles = layout.fanins(outgoing_tile)
+                        incoming_tiles = [
+                            layout.get_node(inp) for inp in incoming_tiles if inp != (x, y, 1)
+                        ]
+                        layout.move_node(
+                            layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles
+                        )
+
             return jsonify({"success": True})
         else:
             return jsonify(
@@ -314,18 +371,31 @@ def delete_gate():
 def connect_gates():
     try:
         data = request.json
-        source_x = int(data["source_x"])
-        source_y = int(data["source_y"])
-        target_x = int(data["target_x"])
-        target_y = int(data["target_y"])
-
         session_id = session["session_id"]
         layout = layouts.get(session_id)
         if not layout:
             return jsonify({"success": False, "error": "Layout not found."})
 
-        source_node = layout.get_node((source_x, source_y))
-        target_node = layout.get_node((target_x, target_y))
+        source_x = int(data["source_x"])
+        source_y = int(data["source_y"])
+        source_z = 0
+        target_x = int(data["target_x"])
+        target_y = int(data["target_y"])
+        target_z = 0
+
+        if not layout.is_empty_tile((source_x, source_y, 1)):
+            if source_x < target_x:
+                source_z = 0
+            else:
+                source_z = 1
+
+        if not layout.is_empty_tile((target_x, target_y, 1)):
+            if source_x < target_x:
+                target_z = 0
+            else:
+                target_z = 1
+        source_node = layout.get_node((source_x, source_y, source_z))
+        target_node = layout.get_node((target_x, target_y, target_z))
 
         if not source_node:
             return jsonify({"success": False, "error": "Source gate not found."})
@@ -333,7 +403,7 @@ def connect_gates():
             return jsonify({"success": False, "error": "Target gate not found."})
 
         # Determine allowed number of fanouts
-        existing_fanouts = layout.fanouts((source_x, source_y))
+        existing_fanouts = layout.fanouts((source_x, source_y, source_z))
         num_fanouts = len(existing_fanouts)
 
         if layout.is_po(source_node):
@@ -347,12 +417,12 @@ def connect_gates():
             return jsonify(
                 {
                     "success": False,
-                    "error": f"Gate at ({source_x}, {source_y}) cannot have more than {max_fanouts} outgoing connections.",
+                    "error": f"Gate at ({source_x}, {source_y}, {source_z}) cannot have more than {max_fanouts} outgoing connections.",
                 }
             )
 
         # Determine allowed number of fanins
-        existing_fanins = layout.fanins((target_x, target_y))
+        existing_fanins = layout.fanins((target_x, target_y, target_z))
         num_fanins = len(existing_fanins)
 
         if layout.is_pi(target_node):
@@ -366,12 +436,12 @@ def connect_gates():
             return jsonify(
                 {
                     "success": False,
-                    "error": f"Gate at ({target_x}, {target_y}) cannot have more than {max_fanins} incoming connections.",
+                    "error": f"Gate at ({target_x}, {target_y}, {target_z}) cannot have more than {max_fanins} incoming connections.",
                 }
             )
 
         # Create a connection from source_node to target_node
-        route_path(layout, [(source_x, source_y), (target_x, target_y)])
+        route_path(layout, [(source_x, source_y, source_z), (target_x, target_y, target_z)])
 
         return jsonify({"success": True})
     except Exception as e:
@@ -782,6 +852,12 @@ def get_layout_information(layout):
                     gate_type = "po"
                 elif layout.is_wire(node):
                     gate_type = "buf"
+                    above_gate = layout.above(layout.get_tile(node))
+                    if not layout.is_empty_tile(above_gate):
+                        if (layout.fanins(above_gate)[0].x == layout.west(layout.get_tile(node)).x and layout.fanouts(above_gate)[0].x == layout.east(layout.get_tile(node)).x) or (layout.fanins(above_gate)[0].x == layout.north(layout.get_tile(node)).x and layout.fanouts(above_gate)[0].x == layout.south(layout.get_tile(node)).x):
+                            gate_type = "bufc"
+                        else:
+                            gate_type = "bufk"
                 elif layout.is_inv(node):
                     gate_type = "inv"
                 elif layout.is_and(node):
@@ -806,6 +882,12 @@ def get_layout_information(layout):
                     gate_info["connections"].append(
                         {"sourceX": fin.x, "sourceY": fin.y}
                     )
+                if gate_type in ("bufc", "bufk"):
+                    fanins = layout.fanins((x, y, 1))
+                    for fin in fanins:
+                        gate_info["connections"].append(
+                            {"sourceX": fin.x, "sourceY": fin.y}
+                        )
                 gates.append(gate_info)
     return layout_dimensions, gates
 

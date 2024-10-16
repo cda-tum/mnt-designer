@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mnt.designer"
-description = "MNT Designer - An MNT tool for Designing FCN circuits"
+description = "MNT Designer - An MNT tool for designing FCN circuits"
 readme = "README.md"
 authors = [
     { name = "Simon Hofmann", email = "simon.t.hofmann@tum.de" },

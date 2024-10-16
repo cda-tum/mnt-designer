@@ -135,6 +135,8 @@ $(document).ready(() => {
           handleZeroInputGatePlacement();
           break;
         case "buf":
+        case "bufc":
+        case "bufk":
         case "inv":
         case "po":
         case "and":
@@ -721,6 +723,29 @@ $(document).ready(() => {
         `;
   }
 
+  // In handlePlaceGate function, check for PI gate
+  function handleZeroInputGatePlacement() {
+    if (selectedNode.data("hasGate")) {
+      updateMessageArea("Cannot place a gate on a non-empty tile.", "danger");
+      selectedNode = null;
+      return;
+    }
+    if (selectedGateType !== "pi") {
+      updateMessageArea("Invalid action. Please select a PI gate.", "danger");
+      selectedNode = null;
+      return;
+    }
+    // Proceed to place PI gate
+    placeGate(selectedNode.data("x"), selectedNode.data("y"), "pi", {})
+        .then(() => {
+          updateMessageArea("PI gate placed successfully.", "success");
+          selectedNode = null;
+        })
+        .catch(() => {
+          selectedNode = null;
+        });
+  }
+
   // Handle gate placement
   function handleGatePlacement(node) {
     if (!selectedNode) {
@@ -738,7 +763,7 @@ $(document).ready(() => {
           "info",
         );
       } else if (
-        ["and", "or", "nor", "xor", "xnor"].includes(selectedGateType)
+        ["and", "or", "nor", "xor", "xnor", "bufc", "bufk"].includes(selectedGateType)
       ) {
         updateMessageArea(
           `Selected node (${node.data("x")},${node.data(
@@ -751,7 +776,7 @@ $(document).ready(() => {
       if (["buf", "inv", "po"].includes(selectedGateType)) {
         handleSingleInputGatePlacement(node);
       } else if (
-        ["and", "or", "nor", "xor", "xnor"].includes(selectedGateType)
+        ["and", "or", "nor", "xor", "xnor", "bufc", "bufk"].includes(selectedGateType)
       ) {
         handleDualInputGatePlacement(node);
       }
@@ -1038,6 +1063,12 @@ $(document).ready(() => {
               case "buf":
                 gateColor = "palegoldenrod";
                 break;
+              case "bufc":
+                gateColor = "lightsalmon";
+                break;
+              case "bufk":
+                gateColor = "lightseagreen";
+                break;
               case "and":
                 gateColor = "lightpink";
                 break;
@@ -1106,6 +1137,12 @@ $(document).ready(() => {
           node.data("label", "BUF");
           node.style("background-color", "palegoldenrod");
         }
+      }
+      else if (gateType === "bufc") {
+        node.data("label", "⭢⭣⭢");
+      }
+      else if (gateType === "bufk") {
+        node.data("label", "↴↳");
       }
     });
   }
@@ -1598,6 +1635,12 @@ $(document).ready(() => {
         break;
       case "buf":
         gateColor = "palegoldenrod";
+        break;
+      case "bufc":
+        gateColor = "lightsalmon";
+        break;
+      case "bufk":
+        gateColor = "lightseagreen";
         break;
       case "fanout":
         gateColor = "orange";
