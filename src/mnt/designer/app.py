@@ -72,10 +72,7 @@ def reset_layout():
         x = int(data.get("x")) - 1
         y = int(data.get("y")) - 1
         z = 1  # Default Z value
-        layout = cartesian_gate_layout((0, 0, 0), "2DDWave", "Layout")
-
-        # Resize the existing layout
-        layout.resize((x, y, z))
+        layout = cartesian_gate_layout((x, y, z), "2DDWave", "Layout")
 
         session_id = session["session_id"]
         layouts[session_id] = layout
@@ -320,6 +317,24 @@ def delete_gate():
         if not layout:
             return jsonify({"success": False, "error": "Layout not found."})
 
+        if not layout.is_empty_tile((x, y, 1)):
+            node = layout.get_node((x, y, 1))
+            if node:
+                # Find all gates that use this node as an input signal
+                outgoing_tiles = layout.fanouts((x, y, 1))
+                layout.move_node(node, (x, y, 1), [])
+                layout.clear_tile((x, y, 1))
+
+                # Update signals for dependent nodes
+                for outgoing_tile in outgoing_tiles:
+                    # Get the other input signals, if any
+                    incoming_tiles = layout.fanins(outgoing_tile)
+                    incoming_tiles = [
+                        layout.get_node(inp) for inp in incoming_tiles if inp != (x, y, 1)
+                    ]
+                    layout.move_node(
+                        layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles
+                    )
         # Remove the gate from the layout
         node = layout.get_node((x, y))
         if node:
@@ -338,25 +353,6 @@ def delete_gate():
                 layout.move_node(
                     layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles
                 )
-
-            if not layout.is_empty_tile((x, y, 1)):
-                node = layout.get_node((x, y, 1))
-                if node:
-                    # Find all gates that use this node as an input signal
-                    outgoing_tiles = layout.fanouts((x, y, 1))
-                    layout.move_node(node, (x, y, 1), [])
-                    layout.clear_tile((x, y, 1))
-
-                    # Update signals for dependent nodes
-                    for outgoing_tile in outgoing_tiles:
-                        # Get the other input signals, if any
-                        incoming_tiles = layout.fanins(outgoing_tile)
-                        incoming_tiles = [
-                            layout.get_node(inp) for inp in incoming_tiles if inp != (x, y, 1)
-                        ]
-                        layout.move_node(
-                            layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles
-                        )
 
             return jsonify({"success": True})
         else:
@@ -378,22 +374,11 @@ def connect_gates():
 
         source_x = int(data["source_x"])
         source_y = int(data["source_y"])
-        source_z = 0
+        source_z = int(data["source_z"])
         target_x = int(data["target_x"])
         target_y = int(data["target_y"])
-        target_z = 0
+        target_z = int(data["target_z"])
 
-        if not layout.is_empty_tile((source_x, source_y, 1)):
-            if source_x < target_x:
-                source_z = 0
-            else:
-                source_z = 1
-
-        if not layout.is_empty_tile((target_x, target_y, 1)):
-            if source_x < target_x:
-                target_z = 0
-            else:
-                target_z = 1
         source_node = layout.get_node((source_x, source_y, source_z))
         target_node = layout.get_node((target_x, target_y, target_z))
 
@@ -770,7 +755,7 @@ def apply_gold():
             return jsonify(
                 {
                     "success": False,
-                    "error": "Network size is less than 3, indicating that not gates are present.",
+                    "error": "Network is empty.",
                 }
             )
 

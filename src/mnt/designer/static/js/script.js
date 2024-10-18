@@ -1245,11 +1245,11 @@ $(document).ready(() => {
       .connectedEdges()
       .filter((edge) => edge.data("source") === selectedSourceNode.id());
     let maxFanouts = 1;
-    const gateType = selectedSourceNode.data("label").toLowerCase();
-
-    if (gateType === "po") {
+    const sourceGateType = selectedSourceNode.data("label").toLowerCase();
+    const targetGateType = selectedNode.data("label").toLowerCase();
+    if (sourceGateType === "po") {
       maxFanouts = 0;
-    } else if (gateType === "buf" || gateType === "fanout") {
+    } else if (sourceGateType === "buf" || sourceGateType === "⭢⭣⭢" || sourceGateType === "↴↳" || sourceGateType === "fanout") {
       maxFanouts = 2;
     }
 
@@ -1265,6 +1265,20 @@ $(document).ready(() => {
       return;
     }
 
+    let source_z = 0;
+    if (sourceGateType === "⭢⭣⭢" || sourceGateType === "↴↳") {
+      if (sourceX === targetX) {
+        source_z = 1;
+      }
+    }
+
+    let target_z = 0;
+    if (targetGateType === "⭢⭣⭢") {
+      if (sourceX < targetX) {
+        target_z = 1;
+      }
+    }
+
     // Proceed to connect
     $.ajax({
       url: "/connect_gates",
@@ -1273,8 +1287,10 @@ $(document).ready(() => {
       data: JSON.stringify({
         source_x: sourceX,
         source_y: sourceY,
+        source_z: source_z,
         target_x: targetX,
         target_y: targetY,
+        target_z: target_z,
       }),
       success: (data) => {
         if (data.success) {
