@@ -138,13 +138,64 @@ def place_gate():
             source_x = int(params["first"]["position"]["x"])
             source_y = int(params["first"]["position"]["y"])
             source_z = 0
-            if not layout.is_empty_tile((source_x, source_y, 1)):
+            source_gate_type = params["first"]["gate_type"]
+
+            if source_gate_type == "bufc":
                 if source_x < x:
-                    source_z = 0
+                    if layout.has_southern_outgoing_signal((source_x, source_y, 0)):
+                        source_z = 1
+                    elif layout.has_southern_outgoing_signal((source_x, source_y, 1)):
+                        source_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((source_x, source_y, 0)):
+                            source_z = 1
+                        elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                            source_z = 0
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
                 elif source_y < y:
-                    source_z = 1
+                    if layout.has_eastern_outgoing_signal((source_x, source_y, 0)):
+                        source_z = 1
+                    elif layout.has_eastern_outgoing_signal((source_x, source_y, 1)):
+                        source_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((source_x, source_y, 0)):
+                            source_z = 0
+                        elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                            source_z = 1
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
                 else:
                     return jsonify({"success": False, "error": "Something went wrong."})
+
+            if source_gate_type == "bufk":
+                if source_x < x:
+                    if layout.has_southern_outgoing_signal((source_x, source_y, 0)):
+                        source_z = 1
+                    elif layout.has_southern_outgoing_signal((source_x, source_y, 1)):
+                        source_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((source_x, source_y, 0)):
+                            source_z = 0
+                        elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                            source_z = 1
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
+                elif source_y < y:
+                    if layout.has_eastern_outgoing_signal((source_x, source_y, 0)):
+                        source_z = 1
+                    elif layout.has_eastern_outgoing_signal((source_x, source_y, 1)):
+                        source_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((source_x, source_y, 0)):
+                            source_z = 1
+                        elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                            source_z = 0
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
+                else:
+                    return jsonify({"success": False, "error": "Something went wrong."})
+
             source_node = layout.get_node((source_x, source_y, source_z))
             if not source_node:
                 return jsonify({"success": False, "error": "Source gate not found."})
@@ -174,7 +225,7 @@ def place_gate():
                 return jsonify(
                     {
                         "success": False,
-                        "error": f"Gate at ({source_x}, {source_y}) cannot have more than {max_fanouts} outgoing connections.",
+                        "error": f"Gate at ({source_x}, {source_y}, {source_z}) cannot have more than {max_fanouts} outgoing connections.",
                     }
                 )
 
@@ -195,21 +246,119 @@ def place_gate():
             first_x = int(params["first"]["position"]["x"])
             first_y = int(params["first"]["position"]["y"])
             first_z = 0
-            if not layout.is_empty_tile((first_x, first_y, 1)):
+            first_source_gate_type = params["first"]["gate_type"]
+            if first_source_gate_type == "bufc":
                 if first_x < x:
-                    first_z = 0
+                    if layout.has_southern_outgoing_signal((first_x, first_y, 0)):
+                        first_z = 1
+                    elif layout.has_southern_outgoing_signal((first_x, first_y, 1)):
+                        first_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((first_x, first_y, 0)):
+                            first_z = 1
+                        elif layout.has_northern_incoming_signal((first_x, first_y, 1)):
+                            first_z = 0
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
                 elif first_y < y:
-                    first_z = 1
+                    if layout.has_eastern_outgoing_signal((first_x, first_y, 0)):
+                        first_z = 1
+                    elif layout.has_eastern_outgoing_signal((first_x, first_y, 1)):
+                        first_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((first_x, first_y, 0)):
+                            first_z = 0
+                        elif layout.has_northern_incoming_signal((first_x, first_y, 1)):
+                            first_z = 1
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
+                else:
+                    return jsonify({"success": False, "error": "Something went wrong."})
+
+            if first_source_gate_type == "bufk":
+                if first_x < x:
+                    if layout.has_southern_outgoing_signal((first_x, first_y, 0)):
+                        first_z = 1
+                    elif layout.has_southern_outgoing_signal((first_x, first_y, 1)):
+                        first_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((first_x, first_y, 0)):
+                            first_z = 0
+                        elif layout.has_northern_incoming_signal((first_x, first_y, 1)):
+                            first_z = 1
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
+                elif first_y < y:
+                    if layout.has_eastern_outgoing_signal((first_x, first_y, 0)):
+                        first_z = 1
+                    elif layout.has_eastern_outgoing_signal((first_x, first_y, 1)):
+                        first_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((first_x, first_y, 0)):
+                            first_z = 1
+                        elif layout.has_northern_incoming_signal((first_x, first_y, 1)):
+                            first_z = 0
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
                 else:
                     return jsonify({"success": False, "error": "Something went wrong."})
             second_x = int(params["second"]["position"]["x"])
             second_y = int(params["second"]["position"]["y"])
             second_z = 0
-            if not layout.is_empty_tile((second_x, second_y, 1)):
+            second_source_gate_type = params["second"]["gate_type"]
+            if second_source_gate_type == "bufc":
                 if second_x < x:
-                    second_z = 0
+                    if layout.has_southern_outgoing_signal((second_x, second_y, 0)):
+                        second_z = 1
+                    elif layout.has_southern_outgoing_signal((second_x, second_y, 1)):
+                        second_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((second_x, second_y, 0)):
+                            second_z = 1
+                        elif layout.has_northern_incoming_signal((second_x, second_y, 1)):
+                            second_z = 0
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
                 elif second_y < y:
-                    second_z = 1
+                    if layout.has_eastern_outgoing_signal((second_x, second_y, 0)):
+                        second_z = 1
+                    elif layout.has_eastern_outgoing_signal((second_x, second_y, 1)):
+                        second_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((second_x, second_y, 0)):
+                            second_z = 0
+                        elif layout.has_northern_incoming_signal((second_x, second_y, 1)):
+                            second_z = 1
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
+                else:
+                    return jsonify({"success": False, "error": "Something went wrong."})
+
+            if first_source_gate_type == "bufk":
+                if second_x < x:
+                    if layout.has_southern_outgoing_signal((second_x, second_y, 0)):
+                        second_z = 1
+                    elif layout.has_southern_outgoing_signal((second_x, second_y, 1)):
+                        second_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((second_x, second_y, 0)):
+                            second_z = 0
+                        elif layout.has_northern_incoming_signal((second_x, second_y, 1)):
+                            second_z = 1
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
+                elif second_y < y:
+                    if layout.has_eastern_outgoing_signal((second_x, second_y, 0)):
+                        second_z = 1
+                    elif layout.has_eastern_outgoing_signal((second_x, second_y, 1)):
+                        second_z = 0
+                    else:
+                        if layout.has_northern_incoming_signal((second_x, second_y, 0)):
+                            second_z = 1
+                        elif layout.has_northern_incoming_signal((second_x, second_y, 1)):
+                            second_z = 0
+                        else:
+                            return jsonify({"success": False, "error": "Something went wrong."})
                 else:
                     return jsonify({"success": False, "error": "Something went wrong."})
             first_node = layout.get_node((first_x, first_y, first_z))
@@ -236,7 +385,7 @@ def place_gate():
 
                 if layout.is_po(existing_fanin):
                     max_fanouts = 0
-                elif layout.is_wire(existing_fanin):
+                elif layout.is_wire(existing_fanin) and not existing_fanin.z == 1:
                     max_fanouts = 2
                 else:
                     max_fanouts = 1
@@ -279,20 +428,9 @@ def place_gate():
                     layout.make_signal(second_node),
                     (x, y),
                 )
-            elif gate_type == "bufc":
-                if first_x < second_x:
-                    layout.create_buf(layout.make_signal(first_node), (x, y, 0))
-                    layout.create_buf(layout.make_signal(second_node), (x, y, 1))
-                else:
-                    layout.create_buf(layout.make_signal(second_node), (x, y, 0))
-                    layout.create_buf(layout.make_signal(first_node), (x, y, 1))
-            elif gate_type == "bufk":
-                if first_x < second_x:
-                    layout.create_buf(layout.make_signal(second_node), (x, y, 0))
-                    layout.create_buf(layout.make_signal(first_node), (x, y, 1))
-                else:
-                    layout.create_buf(layout.make_signal(first_node), (x, y, 0))
-                    layout.create_buf(layout.make_signal(second_node), (x, y, 1))
+            elif gate_type in ["bufc", "bufk"]:
+                layout.create_buf(layout.make_signal(first_node), (x, y, 0))
+                layout.create_buf(layout.make_signal(second_node), (x, y, 1))
         else:
             return jsonify(
                 {"success": False, "error": f"Unsupported gate type: {gate_type}"}
@@ -329,11 +467,11 @@ def delete_gate():
                 for outgoing_tile in outgoing_tiles:
                     # Get the other input signals, if any
                     incoming_tiles = layout.fanins(outgoing_tile)
-                    incoming_tiles = [
-                        layout.get_node(inp) for inp in incoming_tiles if inp != (x, y, 1)
+                    incoming_signals = [
+                        layout.make_signal(layout.get_node(inp)) for inp in incoming_tiles if inp != (x, y, 1)
                     ]
                     layout.move_node(
-                        layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles
+                        layout.get_node(outgoing_tile), outgoing_tile, incoming_signals
                     )
         # Remove the gate from the layout
         node = layout.get_node((x, y))
@@ -347,11 +485,11 @@ def delete_gate():
             for outgoing_tile in outgoing_tiles:
                 # Get the other input signals, if any
                 incoming_tiles = layout.fanins(outgoing_tile)
-                incoming_tiles = [
-                    layout.get_node(inp) for inp in incoming_tiles if inp != (x, y)
+                incoming_signals = [
+                    layout.make_signal(layout.get_node(inp)) for inp in incoming_tiles if inp != (x, y)
                 ]
                 layout.move_node(
-                    layout.get_node(outgoing_tile), outgoing_tile, incoming_tiles
+                    layout.get_node(outgoing_tile), outgoing_tile, incoming_signals
                 )
 
             return jsonify({"success": True})
@@ -374,10 +512,124 @@ def connect_gates():
 
         source_x = int(data["source_x"])
         source_y = int(data["source_y"])
-        source_z = int(data["source_z"])
+        source_z = 0
+        source_gate_type = data["source_gate_type"]
         target_x = int(data["target_x"])
         target_y = int(data["target_y"])
-        target_z = int(data["target_z"])
+        target_z = 0
+        target_gate_type = data["target_gate_type"]
+
+        if source_gate_type == "bufc":
+            if source_x < target_x:
+                if layout.has_southern_outgoing_signal((source_x, source_y, 0)):
+                    source_z = 1
+                elif layout.has_southern_outgoing_signal((source_x, source_y, 1)):
+                    source_z = 0
+                else:
+                    if layout.has_northern_incoming_signal((source_x, source_y, 0)):
+                        source_z = 1
+                    elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                        source_z = 0
+                    else:
+                        return jsonify({"success": False, "error": "Something went wrong."})
+            elif source_y < target_y:
+                if layout.has_eastern_outgoing_signal((source_x, source_y, 0)):
+                    source_z = 1
+                elif layout.has_eastern_outgoing_signal((source_x, source_y, 1)):
+                    source_z = 0
+                else:
+                    if layout.has_northern_incoming_signal((source_x, source_y, 0)):
+                        source_z = 0
+                    elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                        source_z = 1
+                    else:
+                        return jsonify({"success": False, "error": "Something went wrong."})
+            else:
+                return jsonify({"success": False, "error": "Something went wrong."})
+
+        if source_gate_type == "bufk":
+            if source_x < target_x:
+                if layout.has_southern_outgoing_signal((source_x, source_y, 0)):
+                    source_z = 1
+                elif layout.has_southern_outgoing_signal((source_x, source_y, 1)):
+                    source_z = 0
+                else:
+                    if layout.has_northern_incoming_signal((source_x, source_y, 0)):
+                        source_z = 0
+                    elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                        source_z = 1
+                    else:
+                        return jsonify({"success": False, "error": "Something went wrong."})
+            elif source_y < target_y:
+                if layout.has_eastern_outgoing_signal((source_x, source_y, 0)):
+                    source_z = 1
+                elif layout.has_eastern_outgoing_signal((source_x, source_y, 1)):
+                    source_z = 0
+                else:
+                    if layout.has_northern_incoming_signal((source_x, source_y, 0)):
+                        source_z = 1
+                    elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                        source_z = 0
+                    else:
+                        return jsonify({"success": False, "error": "Something went wrong."})
+            else:
+                return jsonify({"success": False, "error": "Something went wrong."})
+
+        if target_gate_type == "bufc":
+            if source_x < target_x:
+                if layout.has_southern_outgoing_signal((target_x, target_y, 0)):
+                    target_z = 1
+                elif layout.has_southern_outgoing_signal((target_x, target_y, 1)):
+                    target_z = 0
+                else:
+                    if layout.has_northern_incoming_signal((target_x, target_y, 0)):
+                        target_z = 1
+                    elif layout.has_northern_incoming_signal((target_x, target_y, 1)):
+                        target_z = 0
+                    else:
+                        return jsonify({"success": False, "error": "Something went wrong."})
+            elif source_y < target_y:
+                if layout.has_eastern_outgoing_signal((target_x, target_y, 0)):
+                    target_z = 1
+                elif layout.has_eastern_outgoing_signal((target_x, target_y, 1)):
+                    target_z = 0
+                else:
+                    if layout.has_western_incoming_signal((target_x, target_y, 0)):
+                        target_z = 1
+                    elif layout.has_western_incoming_signal((target_x, target_y, 1)):
+                        target_z = 0
+                    else:
+                        return jsonify({"success": False, "error": "Something went wrong."})
+            else:
+                return jsonify({"success": False, "error": "Something went wrong."})
+
+        if target_gate_type == "bufk":
+            if source_x < target_x:
+                if layout.has_southern_outgoing_signal((target_x, target_y, 0)):
+                    target_z = 0
+                elif layout.has_southern_outgoing_signal((target_x, target_y, 1)):
+                    target_z = 1
+                else:
+                    if layout.has_northern_incoming_signal((target_x, target_y, 0)):
+                        target_z = 1
+                    elif layout.has_northern_incoming_signal((target_x, target_y, 1)):
+                        target_z = 0
+                    else:
+                        return jsonify({"success": False, "error": "Something went wrong."})
+            elif source_y < target_y:
+                if layout.has_eastern_outgoing_signal((target_x, target_y, 0)):
+                    target_z = 0
+                elif layout.has_eastern_outgoing_signal((target_x, target_y, 1)):
+                    target_z = 1
+                else:
+                    if layout.has_western_incoming_signal((target_x, target_y, 0)):
+                        target_z = 1
+                    elif layout.has_western_incoming_signal((target_x, target_y, 1)):
+                        target_z = 0
+                    else:
+                        return jsonify({"success": False, "error": "Something went wrong."})
+            else:
+                return jsonify({"success": False, "error": "Something went wrong."})
 
         source_node = layout.get_node((source_x, source_y, source_z))
         target_node = layout.get_node((target_x, target_y, target_z))
@@ -393,7 +645,7 @@ def connect_gates():
 
         if layout.is_po(source_node):
             max_fanouts = 0
-        elif layout.is_wire(source_node):
+        elif layout.is_wire(source_node) and not source_z == 1:
             max_fanouts = 2
         else:
             max_fanouts = 1

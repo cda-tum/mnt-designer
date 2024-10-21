@@ -830,6 +830,7 @@ $(document).ready(() => {
   function placeSingleInputGate() {
     const gateX = selectedNode.data("x");
     const gateY = selectedNode.data("y");
+    const source_gate_type = selectedSourceNode.data("label").toLowerCase();
 
     placeGate(gateX, gateY, selectedGateType, {
       first: {
@@ -837,6 +838,7 @@ $(document).ready(() => {
           x: selectedSourceNode.data("x"),
           y: selectedSourceNode.data("y"),
         },
+        gate_type: source_gate_type === "⭢⭣⭢" ? "bufc" : source_gate_type === "↴↳" ? "bufk" : source_gate_type,
       },
     })
       .then(() => {
@@ -939,6 +941,8 @@ $(document).ready(() => {
   function placeDualInputGate() {
     const gateX = selectedNode.data("x");
     const gateY = selectedNode.data("y");
+    const first_source_gate_type = selectedSourceNode.data("label").toLowerCase();
+    const second_source_gate_type = selectedSourceNode2.data("label").toLowerCase();
 
     placeGate(gateX, gateY, selectedGateType, {
       first: {
@@ -946,12 +950,14 @@ $(document).ready(() => {
           x: selectedSourceNode.data("x"),
           y: selectedSourceNode.data("y"),
         },
+        gate_type: first_source_gate_type === "⭢⭣⭢" ? "bufc" : first_source_gate_type === "↴↳" ? "bufk" : first_source_gate_type,
       },
       second: {
         position: {
           x: selectedSourceNode2.data("x"),
           y: selectedSourceNode2.data("y"),
         },
+        gate_type: second_source_gate_type === "⭢⭣⭢" ? "bufc" : second_source_gate_type === "↴↳" ? "bufk" : second_source_gate_type,
       },
     })
       .then(() => {
@@ -1265,19 +1271,8 @@ $(document).ready(() => {
       return;
     }
 
-    let source_z = 0;
-    if (sourceGateType === "⭢⭣⭢" || sourceGateType === "↴↳") {
-      if (sourceX === targetX) {
-        source_z = 1;
-      }
-    }
-
-    let target_z = 0;
-    if (targetGateType === "⭢⭣⭢") {
-      if (sourceX < targetX) {
-        target_z = 1;
-      }
-    }
+    const source_gate_type = selectedSourceNode.data("label").toLowerCase();
+    const target_gate_type = selectedNode.data("label").toLowerCase();
 
     // Proceed to connect
     $.ajax({
@@ -1287,10 +1282,10 @@ $(document).ready(() => {
       data: JSON.stringify({
         source_x: sourceX,
         source_y: sourceY,
-        source_z: source_z,
+        source_gate_type: source_gate_type === "⭢⭣⭢" ? "bufc" : source_gate_type === "↴↳" ? "bufk" : source_gate_type,
         target_x: targetX,
         target_y: targetY,
-        target_z: target_z,
+        target_gate_type: target_gate_type === "⭢⭣⭢" ? "bufc" : target_gate_type === "↴↳" ? "bufk" : target_gate_type,
       }),
       success: (data) => {
         if (data.success) {
