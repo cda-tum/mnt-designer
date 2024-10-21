@@ -16,7 +16,10 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
     />
     <!-- Include Ace Editor -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js" crossorigin="anonymous"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"
+      crossorigin="anonymous"
+    ></script>
     <!-- Custom CSS -->
     <link
       rel="stylesheet"
@@ -53,20 +56,36 @@
           />
         </div>
         <div class="col-auto d-flex align-items-center">
-          <button type="submit" class="btn btn-primary mb-3 me-2" id="resize-button">
+          <button
+            type="submit"
+            class="btn btn-primary mb-3 me-2"
+            id="resize-button"
+          >
             Resize Layout
           </button>
-          <button type="button" class="btn btn-secondary mb-3 me-2" id="reset-layout-button">
+          <button
+            type="button"
+            class="btn btn-secondary mb-3 me-2"
+            id="reset-layout-button"
+          >
             Reset Layout
           </button>
-          <button type="button" class="btn btn-secondary mb-3" id="reset-editor-button">
+          <button
+            type="button"
+            class="btn btn-secondary mb-3"
+            id="reset-editor-button"
+          >
             Reset Editor
           </button>
         </div>
       </form>
       <!-- Import/Export Buttons -->
       <div class="btn-group mb-3 d-flex justify-content-center" role="group">
-        <button type="button" id="import-verilog-button" class="btn btn-outline-primary">
+        <button
+          type="button"
+          id="import-verilog-button"
+          class="btn btn-outline-primary"
+        >
           <i class="fas fa-file-import"></i> Import Verilog
         </button>
         <button
@@ -91,7 +110,12 @@
         accept=".xml"
         style="display: none"
       />
-      <input type="file" id="import-verilog-file-input" accept=".v" style="display: none" />
+      <input
+        type="file"
+        id="import-verilog-file-input"
+        accept=".v"
+        style="display: none"
+      />
       <!-- Gate Selection -->
       <div
         id="gate-selection"
@@ -140,23 +164,23 @@
         </button>
         <!-- Crossing Top-Bottom Right-Left Gate -->
         <button
-                type="button"
-                id="bufc-button"
-                class="btn btn-outline-secondary"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Place a Crossing Top-Bottom Right-Left gate"
+          type="button"
+          id="bufc-button"
+          class="btn btn-outline-secondary"
+          data-bs-toggle="tooltip"
+          data-bs-placement="top"
+          title="Place a Crossing Top-Bottom Right-Left gate"
         >
           <i class="fas fa-random"></i> Crossing (⭣⭢)
         </button>
         <!-- Crossing Top-Right Left-Bottom Gate -->
         <button
-                type="button"
-                id="bufk-button"
-                class="btn btn-outline-secondary"
-                data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Place a Crossing Top-Right Left-Bottom gate"
+          type="button"
+          id="bufk-button"
+          class="btn btn-outline-secondary"
+          data-bs-toggle="tooltip"
+          data-bs-placement="top"
+          title="Place a Crossing Top-Right Left-Bottom gate"
         >
           <i class="fas fa-random"></i> Crossing (↴↳)
         </button>
@@ -259,11 +283,19 @@
           <i class="fas fa-check-circle"></i> Check Design Rules
         </button>
         <!-- Check Equivalence Button -->
-        <button type="button" id="check-equivalence-button" class="btn btn-outline-info">
+        <button
+          type="button"
+          id="check-equivalence-button"
+          class="btn btn-outline-info"
+        >
           <i class="fas fa-balance-scale"></i> Check Equivalence
         </button>
         <!-- Post-Layout Optimization Button -->
-        <button type="button" id="optimization-button" class="btn btn-outline-warning">
+        <button
+          type="button"
+          id="optimization-button"
+          class="btn btn-outline-warning"
+        >
           <i class="fas fa-cogs"></i> Optimize Layout
         </button>
       </div>
@@ -282,14 +314,33 @@
           <i class="fas fa-compress"></i> Reset Zoom
         </button>
       </div>
-      <!-- Violations Area -->
-      <div id="violations-area" class="alert alert-warning d-none" role="alert">
+      <!-- Violations Area with Custom Close Button -->
+      <div
+        id="violations-area"
+        class="alert alert-warning fade show d-none"
+        role="alert"
+      >
+        <button
+          type="button"
+          class="btn-close close-violations"
+          aria-label="Close"
+        ></button>
         <h5>Design Rule Violations:</h5>
         <ul id="violations-list"></ul>
       </div>
-      <!-- Equivalence Area -->
-      <div id="equivalence-area" class="alert alert-warning d-none" role="alert">
+      <!-- Equivalence Area with Custom Close Button -->
+      <div
+        id="equivalence-area"
+        class="alert alert-warning alert-dismissible fade show d-none"
+        role="alert"
+      >
+        <button
+          type="button"
+          class="btn-close close-equivalence"
+          aria-label="Close"
+        ></button>
         <h5>Equivalence:</h5>
+        <!-- Dynamic Content Will Be Injected Here -->
       </div>
       <div class="row">
         <div class="col-md-4">

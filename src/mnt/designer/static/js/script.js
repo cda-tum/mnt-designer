@@ -353,10 +353,7 @@ $(document).ready(() => {
       },
       error: function (jqXHR, textStatus, errorThrown) {
         $("#optimization-button").prop("disabled", false);
-        updateMessageArea(
-          "Error optimizing layout: " + errorThrown,
-          "danger",
-        );
+        updateMessageArea("Error optimizing layout: " + errorThrown, "danger");
       },
     });
   });
@@ -737,13 +734,13 @@ $(document).ready(() => {
     }
     // Proceed to place PI gate
     placeGate(selectedNode.data("x"), selectedNode.data("y"), "pi", {})
-        .then(() => {
-          updateMessageArea("PI gate placed successfully.", "success");
-          selectedNode = null;
-        })
-        .catch(() => {
-          selectedNode = null;
-        });
+      .then(() => {
+        updateMessageArea("PI gate placed successfully.", "success");
+        selectedNode = null;
+      })
+      .catch(() => {
+        selectedNode = null;
+      });
   }
 
   // Handle gate placement
@@ -763,7 +760,9 @@ $(document).ready(() => {
           "info",
         );
       } else if (
-        ["and", "or", "nor", "xor", "xnor", "bufc", "bufk"].includes(selectedGateType)
+        ["and", "or", "nor", "xor", "xnor", "bufc", "bufk"].includes(
+          selectedGateType,
+        )
       ) {
         updateMessageArea(
           `Selected node (${node.data("x")},${node.data(
@@ -776,7 +775,9 @@ $(document).ready(() => {
       if (["buf", "inv", "po"].includes(selectedGateType)) {
         handleSingleInputGatePlacement(node);
       } else if (
-        ["and", "or", "nor", "xor", "xnor", "bufc", "bufk"].includes(selectedGateType)
+        ["and", "or", "nor", "xor", "xnor", "bufc", "bufk"].includes(
+          selectedGateType,
+        )
       ) {
         handleDualInputGatePlacement(node);
       }
@@ -838,7 +839,12 @@ $(document).ready(() => {
           x: selectedSourceNode.data("x"),
           y: selectedSourceNode.data("y"),
         },
-        gate_type: source_gate_type === "⭢⭣⭢" ? "bufc" : source_gate_type === "↴↳" ? "bufk" : source_gate_type,
+        gate_type:
+          source_gate_type === "⭢⭣⭢"
+            ? "bufc"
+            : source_gate_type === "↴↳"
+              ? "bufk"
+              : source_gate_type,
       },
     })
       .then(() => {
@@ -941,8 +947,12 @@ $(document).ready(() => {
   function placeDualInputGate() {
     const gateX = selectedNode.data("x");
     const gateY = selectedNode.data("y");
-    const first_source_gate_type = selectedSourceNode.data("label").toLowerCase();
-    const second_source_gate_type = selectedSourceNode2.data("label").toLowerCase();
+    const first_source_gate_type = selectedSourceNode
+      .data("label")
+      .toLowerCase();
+    const second_source_gate_type = selectedSourceNode2
+      .data("label")
+      .toLowerCase();
 
     placeGate(gateX, gateY, selectedGateType, {
       first: {
@@ -950,14 +960,24 @@ $(document).ready(() => {
           x: selectedSourceNode.data("x"),
           y: selectedSourceNode.data("y"),
         },
-        gate_type: first_source_gate_type === "⭢⭣⭢" ? "bufc" : first_source_gate_type === "↴↳" ? "bufk" : first_source_gate_type,
+        gate_type:
+          first_source_gate_type === "⭢⭣⭢"
+            ? "bufc"
+            : first_source_gate_type === "↴↳"
+              ? "bufk"
+              : first_source_gate_type,
       },
       second: {
         position: {
           x: selectedSourceNode2.data("x"),
           y: selectedSourceNode2.data("y"),
         },
-        gate_type: second_source_gate_type === "⭢⭣⭢" ? "bufc" : second_source_gate_type === "↴↳" ? "bufk" : second_source_gate_type,
+        gate_type:
+          second_source_gate_type === "⭢⭣⭢"
+            ? "bufc"
+            : second_source_gate_type === "↴↳"
+              ? "bufk"
+              : second_source_gate_type,
       },
     })
       .then(() => {
@@ -1143,11 +1163,9 @@ $(document).ready(() => {
           node.data("label", "BUF");
           node.style("background-color", "palegoldenrod");
         }
-      }
-      else if (gateType === "bufc") {
+      } else if (gateType === "bufc") {
         node.data("label", "⭢⭣⭢");
-      }
-      else if (gateType === "bufk") {
+      } else if (gateType === "bufk") {
         node.data("label", "↴↳");
       }
     });
@@ -1255,7 +1273,12 @@ $(document).ready(() => {
     const targetGateType = selectedNode.data("label").toLowerCase();
     if (sourceGateType === "po") {
       maxFanouts = 0;
-    } else if (sourceGateType === "buf" || sourceGateType === "⭢⭣⭢" || sourceGateType === "↴↳" || sourceGateType === "fanout") {
+    } else if (
+      sourceGateType === "buf" ||
+      sourceGateType === "⭢⭣⭢" ||
+      sourceGateType === "↴↳" ||
+      sourceGateType === "fanout"
+    ) {
       maxFanouts = 2;
     }
 
@@ -1282,10 +1305,20 @@ $(document).ready(() => {
       data: JSON.stringify({
         source_x: sourceX,
         source_y: sourceY,
-        source_gate_type: source_gate_type === "⭢⭣⭢" ? "bufc" : source_gate_type === "↴↳" ? "bufk" : source_gate_type,
+        source_gate_type:
+          source_gate_type === "⭢⭣⭢"
+            ? "bufc"
+            : source_gate_type === "↴↳"
+              ? "bufk"
+              : source_gate_type,
         target_x: targetX,
         target_y: targetY,
-        target_gate_type: target_gate_type === "⭢⭣⭢" ? "bufc" : target_gate_type === "↴↳" ? "bufk" : target_gate_type,
+        target_gate_type:
+          target_gate_type === "⭢⭣⭢"
+            ? "bufc"
+            : target_gate_type === "↴↳"
+              ? "bufk"
+              : target_gate_type,
       }),
       success: (data) => {
         if (data.success) {
@@ -1346,6 +1379,49 @@ $(document).ready(() => {
     });
   });
 
+  // Handle close button click for violations-area
+  $("#violations-area .close-violations").on("click", function () {
+    $("#violations-area").fadeOut(300, function () {
+      $(this).removeClass("show").addClass("d-none");
+    });
+  });
+
+  // Function to display equivalence results
+  function displayEquivalence(equivalence, counter_example) {
+    const equivalenceArea = $("#equivalence-area");
+
+    // Clear any existing content except the heading
+    equivalenceArea.find("h5").nextAll().remove();
+
+    if (equivalence === "STRONG" || equivalence === "WEAK") {
+      equivalenceArea
+        .removeClass("alert-warning alert-danger alert-info")
+        .addClass("alert-success");
+      equivalenceArea.find("h5").text("Network and Layout are equivalent.");
+      equivalenceArea.append(
+        `<p>Equivalence Type: <strong>${equivalence}</strong></p>`,
+      );
+    } else {
+      equivalenceArea
+        .removeClass("alert-success alert-info alert-warning alert-danger")
+        .addClass("alert-warning");
+      equivalenceArea.find("h5").text("Network and Layout are not equivalent.");
+      if (counter_example && counter_example.length !== 0) {
+        equivalenceArea.append(`<p>Counter Example: ${counter_example}</p>`);
+      } else {
+        equivalenceArea.append(
+          `<p>No counter example provided. (Network or Layout has DRVs)</p>`,
+        );
+      }
+    }
+
+    // Show the equivalence area with fade-in effect
+    equivalenceArea.removeClass("d-none").fadeIn(100, function () {
+      $(this).addClass("show");
+    });
+  }
+
+  // Function to display design rule violations
   function displayViolations(errors, warnings) {
     const violationsArea = $("#violations-area");
     const violationsList = $("#violations-list");
@@ -1425,7 +1501,9 @@ $(document).ready(() => {
     }
 
     // Show the Violations Area
-    violationsArea.removeClass("d-none");
+    violationsArea.removeClass("d-none").fadeIn(100, function () {
+      $(this).addClass("show");
+    });
   }
 
   // Check Equivalence
@@ -1454,6 +1532,13 @@ $(document).ready(() => {
     });
   });
 
+  $("#equivalence-area .close-equivalence").on("click", function () {
+    $("#equivalence-area").fadeOut(100, function () {
+      $(this).removeClass("show").addClass("d-none");
+    });
+  });
+
+  // Function to display equivalence results
   function displayEquivalence(equivalence, counter_example) {
     const equivalenceArea = $("#equivalence-area");
 
@@ -1461,15 +1546,19 @@ $(document).ready(() => {
     equivalenceArea.find("h5").nextAll().remove();
 
     if (equivalence === "STRONG" || equivalence === "WEAK") {
-      equivalenceArea.removeClass("alert-warning").addClass("alert-success");
+      equivalenceArea
+        .removeClass("alert-warning alert-danger alert-info")
+        .addClass("alert-success");
       equivalenceArea.find("h5").text("Network and Layout are equivalent.");
       equivalenceArea.append(
         `<p>Equivalence Type: <strong>${equivalence}</strong></p>`,
       );
     } else {
-      equivalenceArea.removeClass("alert-success").addClass("alert-warning");
+      equivalenceArea
+        .removeClass("alert-success alert-info alert-danger")
+        .addClass("alert-warning");
       equivalenceArea.find("h5").text("Network and Layout are not equivalent.");
-      if (counter_example.length !== 0) {
+      if (counter_example && counter_example.length !== 0) {
         equivalenceArea.append(`<p>Counter Example: ${counter_example}</p>`);
       } else {
         equivalenceArea.append(
@@ -1477,7 +1566,11 @@ $(document).ready(() => {
         );
       }
     }
-    equivalenceArea.removeClass("d-none");
+
+    // Show the equivalence area with fade-in effect
+    equivalenceArea.removeClass("d-none").fadeIn(100, function () {
+      $(this).addClass("show");
+    });
   }
 
   // Export Layout
