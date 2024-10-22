@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="98px" height="98px" viewBox="0 0 98 98">
+    <g>
+        <!-- First arrow and line -->
+        <path d="M 8 48 L 38 48 L 45.55 78.2" fill="none" stroke="black" stroke-width="3"/>
+        <path d="M 47.19 84.75 L 40.64 77.11 L 45.55 78.2 L 49.37 74.92 Z" fill="black" stroke="black" stroke-width="3"/>
+
+        <!-- Second arrow and line -->
+        <path d="M 48 8 L 58 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
+        <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
+    </g>
+</svg>

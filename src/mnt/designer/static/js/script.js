@@ -289,37 +289,80 @@ $(document).ready(() => {
     });
   });
 
-  // Gold Button Click Event
-  $("#gold-button").on("click", function () {
-    // Disable the button to prevent multiple clicks
-    $("#gold-button").prop("disabled", true);
+  // Gold Button Click Event (opens modal automatically due to data-bs-toggle)
+  $("#apply-gold").on("click", function () {
+    // Disable the apply button to prevent multiple clicks
+    $("#apply-gold").prop("disabled", true);
     updateMessageArea("Applying gold...", "info");
 
     if (!valid_verilog) {
-      $("#gold-button").prop("disabled", false);
+      $("#apply-gold").prop("disabled", false);
       updateMessageArea("Verilog not valid", "danger");
       return;
     }
 
+    // Collect the parameter values from the modal form
+    const return_first = $("#gold-return-first").val() === "true";
+    const mode = $("#gold-mode").val();
+    const timeout = parseInt($("#gold-timeout").val());
+    const num_vertex_expansions = parseInt(
+      $("#gold-num-vertex-expansions").val(),
+    );
+    const planar = $("#gold-planar").val() === "true";
+    const cost = $("#gold-cost").val();
+    const enable_multithreading =
+      $("#gold-enable-multithreading").val() === "true";
+
+    // Validate parameters (optional)
+    if (
+      isNaN(timeout) ||
+      timeout < 1 ||
+      timeout > 10000 ||
+      isNaN(num_vertex_expansions) ||
+      num_vertex_expansions < 1 ||
+      num_vertex_expansions > 100
+    ) {
+      updateMessageArea(
+        "Invalid input. Please check timeout and number of vertex expansions.",
+        "danger",
+      );
+      $("#apply-gold").prop("disabled", false);
+      return;
+    }
+
+    // Create a data object with parameters to be sent
+    const requestData = {
+      return_first: return_first,
+      mode: mode,
+      timeout: timeout,
+      num_vertex_expansions: num_vertex_expansions,
+      planar: planar,
+      cost: cost,
+      enable_multithreading: enable_multithreading,
+    };
+
+    // Send the parameters with the AJAX request
     $.ajax({
       url: "/apply_gold", // Backend route for the Gold algorithm
       type: "POST",
       contentType: "application/json",
+      data: JSON.stringify(requestData), // Send the parameters as JSON
       success: function (data) {
-        $("#gold-button").prop("disabled", false);
+        $("#apply-gold").prop("disabled", false);
         if (data.success) {
           // Update the layout with the new data after the Gold algorithm is applied
           updateLayout(data.layoutDimensions, data.gates);
           updateMessageArea("Gold algorithm applied successfully.", "success");
+          $("#goldModal").modal("hide"); // Close the modal
         } else {
           updateMessageArea(
-            "Failed to create layout using ortho: " + data.error,
+            "Failed to create layout using gold: " + data.error,
             "danger",
           );
         }
       },
       error: function (jqXHR, textStatus, errorThrown) {
-        $("#gold-button").prop("disabled", false);
+        $("#apply-gold").prop("disabled", false);
         updateMessageArea(
           "Error applying gold algorithm: " + errorThrown,
           "danger",
@@ -328,22 +371,70 @@ $(document).ready(() => {
     });
   });
 
+  // Show or hide the custom input based on the selection
+  $("#max-gate-relocations").on("change", function () {
+    if ($(this).val() === "custom") {
+      // Show the custom input field if "Custom" is selected
+      $("#custom-relocations-input").removeClass("d-none");
+    } else {
+      // Hide the custom input field if "Max" is selected
+      $("#custom-relocations-input").addClass("d-none");
+    }
+  });
+
   // Optimization Button Click Event
-  $("#optimization-button").on("click", function () {
-    // Disable the button to prevent multiple clicks
-    $("#optimization-button").prop("disabled", true);
+  $("#apply-optimization").on("click", function () {
+    // Disable the apply button to prevent multiple clicks
+    $("#apply-optimization").prop("disabled", true);
     updateMessageArea("Optimizing layout...", "info");
 
+    // Get the value for max_gate_relocations (either "max" or a custom number)
+    let max_gate_relocations = $("#max-gate-relocations").val();
+    if (max_gate_relocations === "custom") {
+      // If custom is selected, get the value from the input
+      max_gate_relocations = parseInt($("#custom-max-gate-relocations").val());
+      if (isNaN(max_gate_relocations) || max_gate_relocations < 0) {
+        updateMessageArea(
+          "Please enter a valid number for custom relocations.",
+          "danger",
+        );
+        $("#apply-optimization").prop("disabled", false);
+        return;
+      }
+    }
+
+    const optimize_pos_only = $("#optimize-pos-only").val() === "true";
+    const planar_optimization = $("#planar-optimization").val() === "true";
+    const timeout = parseInt($("#optimization-timeout").val());
+
+    // Validate the timeout
+    if (isNaN(timeout) || timeout < 1 || timeout > 10000) {
+      updateMessageArea("Invalid input. Please check the timeout.", "danger");
+      $("#apply-optimization").prop("disabled", false);
+      return;
+    }
+
+    // Create a data object with parameters to be sent
+    const requestData = {
+      max_gate_relocations: max_gate_relocations, // Send "max" or the custom number
+      optimize_pos_only: optimize_pos_only,
+      planar_optimization: planar_optimization,
+      timeout: timeout,
+    };
+
+    // Send the parameters with the AJAX request
     $.ajax({
-      url: "/apply_optimization", // Backend route for the Gold algorithm
+      url: "/apply_optimization", // Backend route for the optimization algorithm
       type: "POST",
       contentType: "application/json",
+      data: JSON.stringify(requestData), // Send the parameters as JSON
       success: function (data) {
-        $("#optimization-button").prop("disabled", false);
+        $("#apply-optimization").prop("disabled", false);
         if (data.success) {
           // Update the layout with the new data after the optimization algorithm is applied
           updateLayout(data.layoutDimensions, data.gates);
           updateMessageArea("Layout was optimized successfully.", "success");
+          $("#optimizationModal").modal("hide"); // Close the modal
         } else {
           updateMessageArea(
             "Failed to optimize layout: " + data.error,
@@ -352,7 +443,7 @@ $(document).ready(() => {
         }
       },
       error: function (jqXHR, textStatus, errorThrown) {
-        $("#optimization-button").prop("disabled", false);
+        $("#apply-optimization").prop("disabled", false);
         updateMessageArea("Error optimizing layout: " + errorThrown, "danger");
       },
     });
@@ -674,6 +765,7 @@ $(document).ready(() => {
             data: {
               id: nodeId,
               label: "", // Gate label, initially empty
+              gateType: "",
               x: i,
               y: j,
               tileNumber: tileNumber,
@@ -709,15 +801,51 @@ $(document).ready(() => {
     cy.fit();
   }
 
-  function createTileNumberSVG(number) {
+  function createTileNumberSVG(number, gateType) {
     // Determine the text color based on the tile number
     const textColor = number === 1 || number === 2 ? "#000000" : "#ffffff"; // Black for 1 and 2, white for 3 and 4
 
-    return `
+    if (gateType === "bufc") {
+      return `
+            <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                    <g>
+                        <!-- Horizontal Line with Arrow -->
+                        <path d="M 8 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
+                        <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
+                
+                        <!-- Vertical Line with Arrow -->
+                        <path d="M 48 8 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
+                        <path d="M 48 84.65 L 43.5 75.65 L 48 77.9 L 52.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
+                    </g>
+                </svg>
+                <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+            </svg>
+        `;
+    } else if (gateType === "bufk") {
+      return `
+            <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                    <g>
+                        <!-- First arrow and line -->
+                        <path d="M 8 48 L 38 48 L 45.55 78.2" fill="none" stroke="black" stroke-width="3"/>
+                        <path d="M 47.19 84.75 L 40.64 77.11 L 45.55 78.2 L 49.37 74.92 Z" fill="black" stroke="black" stroke-width="3"/>
+                
+                        <!-- Second arrow and line -->
+                        <path d="M 48 8 L 58 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
+                        <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
+                    </g>
+                </svg>
+                <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+            </svg>
+        `;
+    } else {
+      return `
             <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
                 <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
             </svg>
         `;
+    }
   }
 
   // In handlePlaceGate function, check for PI gate
@@ -831,7 +959,7 @@ $(document).ready(() => {
   function placeSingleInputGate() {
     const gateX = selectedNode.data("x");
     const gateY = selectedNode.data("y");
-    const source_gate_type = selectedSourceNode.data("label").toLowerCase();
+    const sourceGateType = selectedSourceNode.data("gateType").toLowerCase();
 
     placeGate(gateX, gateY, selectedGateType, {
       first: {
@@ -839,12 +967,7 @@ $(document).ready(() => {
           x: selectedSourceNode.data("x"),
           y: selectedSourceNode.data("y"),
         },
-        gate_type:
-          source_gate_type === "⭢⭣⭢"
-            ? "bufc"
-            : source_gate_type === "↴↳"
-              ? "bufk"
-              : source_gate_type,
+        gate_type: sourceGateType,
       },
     })
       .then(() => {
@@ -947,11 +1070,11 @@ $(document).ready(() => {
   function placeDualInputGate() {
     const gateX = selectedNode.data("x");
     const gateY = selectedNode.data("y");
-    const first_source_gate_type = selectedSourceNode
-      .data("label")
+    const firstSourceGateType = selectedSourceNode
+      .data("gateType")
       .toLowerCase();
-    const second_source_gate_type = selectedSourceNode2
-      .data("label")
+    const secondSourceGateType = selectedSourceNode2
+      .data("gateType")
       .toLowerCase();
 
     placeGate(gateX, gateY, selectedGateType, {
@@ -960,24 +1083,14 @@ $(document).ready(() => {
           x: selectedSourceNode.data("x"),
           y: selectedSourceNode.data("y"),
         },
-        gate_type:
-          first_source_gate_type === "⭢⭣⭢"
-            ? "bufc"
-            : first_source_gate_type === "↴↳"
-              ? "bufk"
-              : first_source_gate_type,
+        gate_type: firstSourceGateType,
       },
       second: {
         position: {
           x: selectedSourceNode2.data("x"),
           y: selectedSourceNode2.data("y"),
         },
-        gate_type:
-          second_source_gate_type === "⭢⭣⭢"
-            ? "bufc"
-            : second_source_gate_type === "↴↳"
-              ? "bufk"
-              : second_source_gate_type,
+        gate_type: secondSourceGateType,
       },
     })
       .then(() => {
@@ -1071,6 +1184,7 @@ $(document).ready(() => {
           if (data.success) {
             const node = cy.getElementById(`node-${x}-${y}`);
             node.data("label", `${gateType.toUpperCase()}`);
+            node.data("gateType", `${gateType.toUpperCase()}`);
             node.data("hasGate", true);
 
             // Apply custom colors based on the gate type
@@ -1163,10 +1277,16 @@ $(document).ready(() => {
           node.data("label", "BUF");
           node.style("background-color", "palegoldenrod");
         }
-      } else if (gateType === "bufc") {
-        node.data("label", "⭢⭣⭢");
-      } else if (gateType === "bufk") {
-        node.data("label", "↴↳");
+      } else if (gateType === "bufc" || gateType === "bufk") {
+        // Set the label and background image for bufc
+        node.data("label", "");
+        const tileNumber = node.data("tileNumber");
+        node.style({
+          "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
+            createTileNumberSVG(tileNumber, gateType),
+          )}`,
+          "background-fit": "contain", // Ensure the image fits within the node
+        });
       }
     });
   }
@@ -1196,6 +1316,7 @@ $(document).ready(() => {
 
           // Reset node label and style
           node.data("label", "");
+          node.data("gateType", "");
           node.data("hasGate", false);
           node.style("background-color", node.data("color"));
 
@@ -1269,14 +1390,14 @@ $(document).ready(() => {
       .connectedEdges()
       .filter((edge) => edge.data("source") === selectedSourceNode.id());
     let maxFanouts = 1;
-    const sourceGateType = selectedSourceNode.data("label").toLowerCase();
-    const targetGateType = selectedNode.data("label").toLowerCase();
+    const sourceGateType = selectedSourceNode.data("gateType").toLowerCase();
+    const targetGateType = selectedNode.data("gateType").toLowerCase();
     if (sourceGateType === "po") {
       maxFanouts = 0;
     } else if (
       sourceGateType === "buf" ||
-      sourceGateType === "⭢⭣⭢" ||
-      sourceGateType === "↴↳" ||
+      sourceGateType === " bufc" ||
+      sourceGateType === "bufk" ||
       sourceGateType === "fanout"
     ) {
       maxFanouts = 2;
@@ -1294,9 +1415,6 @@ $(document).ready(() => {
       return;
     }
 
-    const source_gate_type = selectedSourceNode.data("label").toLowerCase();
-    const target_gate_type = selectedNode.data("label").toLowerCase();
-
     // Proceed to connect
     $.ajax({
       url: "/connect_gates",
@@ -1305,20 +1423,10 @@ $(document).ready(() => {
       data: JSON.stringify({
         source_x: sourceX,
         source_y: sourceY,
-        source_gate_type:
-          source_gate_type === "⭢⭣⭢"
-            ? "bufc"
-            : source_gate_type === "↴↳"
-              ? "bufk"
-              : source_gate_type,
+        source_gate_type: sourceGateType,
         target_x: targetX,
         target_y: targetY,
-        target_gate_type:
-          target_gate_type === "⭢⭣⭢"
-            ? "bufc"
-            : target_gate_type === "↴↳"
-              ? "bufk"
-              : target_gate_type,
+        target_gate_type: targetGateType,
       }),
       success: (data) => {
         if (data.success) {
@@ -1538,52 +1646,45 @@ $(document).ready(() => {
     });
   });
 
-  // Function to display equivalence results
-  function displayEquivalence(equivalence, counter_example) {
-    const equivalenceArea = $("#equivalence-area");
-
-    // Clear any existing content except the heading
-    equivalenceArea.find("h5").nextAll().remove();
-
-    if (equivalence === "STRONG" || equivalence === "WEAK") {
-      equivalenceArea
-        .removeClass("alert-warning alert-danger alert-info")
-        .addClass("alert-success");
-      equivalenceArea.find("h5").text("Network and Layout are equivalent.");
-      equivalenceArea.append(
-        `<p>Equivalence Type: <strong>${equivalence}</strong></p>`,
-      );
-    } else {
-      equivalenceArea
-        .removeClass("alert-success alert-info alert-danger")
-        .addClass("alert-warning");
-      equivalenceArea.find("h5").text("Network and Layout are not equivalent.");
-      if (counter_example && counter_example.length !== 0) {
-        equivalenceArea.append(`<p>Counter Example: ${counter_example}</p>`);
-      } else {
-        equivalenceArea.append(
-          `<p>No counter example provided. (Network or Layout has DRVs)</p>`,
-        );
-      }
-    }
-
-    // Show the equivalence area with fade-in effect
-    equivalenceArea.removeClass("d-none").fadeIn(100, function () {
-      $(this).addClass("show");
-    });
-  }
-
   // Export Layout
-  $("#export-button").on("click", function () {
+  $("#export-fgl-layout-button").on("click", function () {
     // Show a loading spinner or disable the button during the download
-    $("#export-button").prop("disabled", true);
+    $("#export-fgl-layout-button").prop("disabled", true);
 
     // Trigger the download
     window.location.href = "/export_layout";
 
     // Re-enable the button after a delay (or based on another event like download completion)
     setTimeout(function () {
-      $("#export-button").prop("disabled", false);
+      $("#export-fgl-layout-button").prop("disabled", false);
+    }, 3000); // Adjust this delay based on the expected download time
+  });
+
+  // Export QCA Layout
+  $("#export-qca-layout-button").on("click", function () {
+    // Show a loading spinner or disable the button during the download
+    $("#export-qca-layout-button").prop("disabled", true);
+
+    // Trigger the download
+    window.location.href = "/export_qca_layout";
+
+    // Re-enable the button after a delay (or based on another event like download completion)
+    setTimeout(function () {
+      $("#export-qca-layout-button").prop("disabled", false);
+    }, 3000); // Adjust this delay based on the expected download time
+  });
+
+  // Export SiDB Layout
+  $("#export-sidb-layout-button").on("click", function () {
+    // Show a loading spinner or disable the button during the download
+    $("#export-sidb-layout-button").prop("disabled", true);
+
+    // Trigger the download
+    window.location.href = "/export_sidb_layout";
+
+    // Re-enable the button after a delay (or based on another event like download completion)
+    setTimeout(function () {
+      $("#export-sidb-layout-button").prop("disabled", false);
     }, 3000); // Adjust this delay based on the expected download time
   });
 
@@ -1722,6 +1823,7 @@ $(document).ready(() => {
   function placeGateLocally(x, y, gateType) {
     const node = cy.getElementById(`node-${x}-${y}`);
     node.data("label", `${gateType.toUpperCase()}`);
+    node.data("gateType", `${gateType.toUpperCase()}`);
     node.data("hasGate", true);
 
     // Apply custom colors based on the gate type

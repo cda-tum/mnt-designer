@@ -97,10 +97,24 @@
         </button>
         <button
           type="button"
-          id="export-button"
+          id="export-fgl-layout-button"
           class="btn btn-outline-primary"
         >
           <i class="fas fa-file-export"></i> Export Layout
+        </button>
+        <button
+          type="button"
+          id="export-qca-layout-button"
+          class="btn btn-outline-primary"
+        >
+          <i class="fas fa-file-export"></i> Export QCA Layout
+        </button>
+        <button
+          type="button"
+          id="export-sidb-layout-button"
+          class="btn btn-outline-primary"
+        >
+          <i class="fas fa-file-export"></i> Export hexagonalized SiDB Layout
         </button>
       </div>
       <!-- Hidden File Input for Import -->
@@ -150,7 +164,13 @@
           data-bs-placement="top"
           title="Place an Inverter gate"
         >
-          <i class="fas fa-not-equal"></i> INV
+          <img
+            src="../static/gates/INV_DIN.svg"
+            alt="BUF Gate"
+            width="25"
+            height="25"
+          />
+          INV
         </button>
         <button
           type="button"
@@ -158,9 +178,15 @@
           class="btn btn-outline-secondary"
           data-bs-toggle="tooltip"
           data-bs-placement="top"
-          title="Place a Buffer gate"
+          title="Place a Buffer"
         >
-          <i class="fas fa-arrow-right"></i> BUF
+          <img
+            src="../static/gates/BUF_DIN.svg"
+            alt="BUF Gate"
+            width="25"
+            height="25"
+          />
+          BUF
         </button>
         <!-- Crossing Top-Bottom Right-Left Gate -->
         <button
@@ -171,7 +197,13 @@
           data-bs-placement="top"
           title="Place a Crossing Top-Bottom Right-Left gate"
         >
-          <i class="fas fa-random"></i> Crossing (⭣⭢)
+          <img
+            src="../static/gates/BUFC.svg"
+            alt="BUF Gate"
+            width="25"
+            height="25"
+          />
+          Crossing
         </button>
         <!-- Crossing Top-Right Left-Bottom Gate -->
         <button
@@ -182,7 +214,13 @@
           data-bs-placement="top"
           title="Place a Crossing Top-Right Left-Bottom gate"
         >
-          <i class="fas fa-random"></i> Crossing (↴↳)
+          <img
+            src="../static/gates/BUFK.svg"
+            alt="BUF Gate"
+            width="25"
+            height="25"
+          />
+          Crossing
         </button>
         <button
           type="button"
@@ -192,7 +230,13 @@
           data-bs-placement="top"
           title="Place an AND gate"
         >
-          <i class="fas fa-plus"></i> AND
+          <img
+            src="../static/gates/AND_DIN.svg"
+            alt="AND Gate"
+            width="25"
+            height="25"
+          />
+          AND
         </button>
         <button
           type="button"
@@ -202,7 +246,13 @@
           data-bs-placement="top"
           title="Place an OR gate"
         >
-          <i class="fas fa-plus-circle"></i> OR
+          <img
+            src="../static/gates/OR_DIN.svg"
+            alt="OR Gate"
+            width="25"
+            height="25"
+          />
+          OR
         </button>
         <button
           type="button"
@@ -212,7 +262,13 @@
           data-bs-placement="top"
           title="Place a NOR gate"
         >
-          <i class="fas fa-ban"></i> NOR
+          <img
+            src="../static/gates/NOR_DIN.svg"
+            alt="NOR Gate"
+            width="25"
+            height="25"
+          />
+          NOR
         </button>
         <button
           type="button"
@@ -222,7 +278,13 @@
           data-bs-placement="top"
           title="Place an XOR gate"
         >
-          <i class="fas fa-times-circle"></i> XOR
+          <img
+            src="../static/gates/XOR_DIN.svg"
+            alt="XOR Gate"
+            width="25"
+            height="25"
+          />
+          XOR
         </button>
         <button
           type="button"
@@ -232,7 +294,13 @@
           data-bs-placement="top"
           title="Place an XNOR gate"
         >
-          <i class="fas fa-times"></i> XNOR
+          <img
+            src="../static/gates/XNOR_DIN.svg"
+            alt="XOR Gate"
+            width="25"
+            height="25"
+          />
+          XNOR
         </button>
         <button
           type="button"
@@ -242,7 +310,7 @@
           data-bs-placement="top"
           title="Connect gates"
         >
-          <i class="fas fa-link"></i> Connect Gates
+          <i class="fas fa-link"></i> Connect
         </button>
         <button
           type="button"
@@ -252,7 +320,7 @@
           data-bs-placement="top"
           title="Delete a gate"
         >
-          <i class="fas fa-trash-alt"></i> Delete Gate
+          <i class="fas fa-trash-alt"></i> Delete
         </button>
         <button
           type="button"
@@ -270,10 +338,236 @@
         <button type="button" id="ortho-button" class="btn btn-outline-primary">
           <i class="fas fa-project-diagram"></i> ortho
         </button>
-        <!-- gold Button -->
-        <button type="button" id="gold-button" class="btn btn-outline-primary">
+        <!-- Gold Button -->
+        <button
+          type="button"
+          id="gold-button"
+          class="btn btn-outline-primary"
+          data-bs-toggle="modal"
+          data-bs-target="#goldModal"
+        >
           <i class="fas fa-gem"></i> gold
         </button>
+        <!-- Gold Algorithm Parameter Modal -->
+        <div
+          class="modal fade"
+          id="goldModal"
+          tabindex="-1"
+          aria-labelledby="goldModalLabel"
+          aria-hidden="true"
+        >
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="goldModalLabel">
+                  Specify gold Parameters
+                </h5>
+                <button
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div class="modal-body">
+                <form id="gold-params-form">
+                  <div class="mb-3">
+                    <label for="gold-return-first" class="form-label"
+                      >Return first found layout</label
+                    >
+                    <select class="form-select" id="gold-return-first">
+                      <option value="false">False</option>
+                      <option value="true">True</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label for="gold-mode" class="form-label"
+                      >Effort Mode</label
+                    >
+                    <select class="form-select" id="gold-mode">
+                      <option value="HIGH_EFFORT">HIGH_EFFORT</option>
+                      <option value="HIGH_EFFICIENCY">HIGH_EFFICIENCY</option>
+                      <option value="HIGHEST_EFFORT">HIGHEST_EFFORT</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label for="gold-timeout" class="form-label"
+                      >Timeout (ms)</label
+                    >
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="gold-timeout"
+                      placeholder="Enter value (1-10000)"
+                      min="1"
+                      max="10000"
+                      value="1000"
+                    />
+                  </div>
+                  <div class="mb-3">
+                    <label for="gold-num-vertex-expansions" class="form-label"
+                      >Number of Vertex Expansions</label
+                    >
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="gold-num-vertex-expansions"
+                      placeholder="Enter value (1-100)"
+                      min="1"
+                      max="10"
+                      value="4"
+                    />
+                  </div>
+                  <div class="mb-3">
+                    <label for="gold-planar" class="form-label">Planar</label>
+                    <select class="form-select" id="gold-planar">
+                      <option value="false">False</option>
+                      <option value="true">True</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label for="gold-cost" class="form-label">Cost</label>
+                    <select class="form-select" id="gold-cost">
+                      <option value="AREA">AREA</option>
+                      <option value="WIRES">WIRES</option>
+                      <option value="CROSSINGS">CROSSINGS</option>
+                      <option value="ACP">ACP</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label for="gold-enable-multithreading" class="form-label"
+                      >Enable Multithreading</label
+                    >
+                    <select class="form-select" id="gold-enable-multithreading">
+                      <option value="false">False</option>
+                      <option value="true">True</option>
+                    </select>
+                  </div>
+                </form>
+              </div>
+              <div class="modal-footer">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-bs-dismiss="modal"
+                >
+                  Close
+                </button>
+                <button type="button" id="apply-gold" class="btn btn-primary">
+                  Apply gold
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Post-Layout Optimization Button -->
+        <button
+          type="button"
+          id="optimization-button"
+          class="btn btn-outline-warning"
+          data-bs-toggle="modal"
+          data-bs-target="#optimizationModal"
+        >
+          <i class="fas fa-cogs"></i> Optimize Layout
+        </button>
+        <!-- Post-Layout Optimization Parameter Modal -->
+        <div
+          class="modal fade"
+          id="optimizationModal"
+          tabindex="-1"
+          aria-labelledby="optimizationModalLabel"
+          aria-hidden="true"
+        >
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="optimizationModalLabel">
+                  Specify Optimization Parameters
+                </h5>
+                <button
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div class="modal-body">
+                <form id="optimization-params-form">
+                  <div class="mb-3">
+                    <label for="max-gate-relocations" class="form-label"
+                      >Max Gate Relocations</label
+                    >
+                    <select class="form-select" id="max-gate-relocations">
+                      <option value="max">Max</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </div>
+                  <!-- Custom value input, shown only if "Custom" is selected -->
+                  <div class="mb-3 d-none" id="custom-relocations-input">
+                    <label for="custom-max-gate-relocations" class="form-label"
+                      >Enter Custom Number of Relocations</label
+                    >
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="custom-max-gate-relocations"
+                      placeholder="Enter custom value (0 to max number of tiles)"
+                      min="0"
+                    />
+                  </div>
+                  <div class="mb-3">
+                    <label for="optimize-pos-only" class="form-label"
+                      >Optimize PO Positions Only</label
+                    >
+                    <select class="form-select" id="optimize-pos-only">
+                      <option value="false" selected>False</option>
+                      <option value="true">True</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label for="planar-optimization" class="form-label"
+                      >Planar Optimization</label
+                    >
+                    <select class="form-select" id="planar-optimization">
+                      <option value="false" selected>False</option>
+                      <option value="true">True</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label for="optimization-timeout" class="form-label"
+                      >Timeout (ms)</label
+                    >
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="optimization-timeout"
+                      placeholder="Enter value (1-10000)"
+                      min="1"
+                      max="10000"
+                      value="1000"
+                    />
+                  </div>
+                </form>
+              </div>
+              <div class="modal-footer">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  data-bs-dismiss="modal"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  id="apply-optimization"
+                  class="btn btn-primary"
+                >
+                  Apply Optimization
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
         <!-- Design Rule Check Button -->
         <button
           type="button"
@@ -289,14 +583,6 @@
           class="btn btn-outline-info"
         >
           <i class="fas fa-balance-scale"></i> Check Equivalence
-        </button>
-        <!-- Post-Layout Optimization Button -->
-        <button
-          type="button"
-          id="optimization-button"
-          class="btn btn-outline-warning"
-        >
-          <i class="fas fa-cogs"></i> Optimize Layout
         </button>
       </div>
       <!-- Message Area -->

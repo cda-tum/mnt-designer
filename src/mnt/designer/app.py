@@ -1,6 +1,7 @@
 import os
 import tempfile
 import uuid
+from xml.sax import parse
 
 from flask import Flask, jsonify, render_template, request, send_file, session
 
@@ -19,9 +20,22 @@ from mnt.pyfiction import (
     eq_type,
     post_layout_optimization,
     post_layout_optimization_params,
+    apply_qca_one_library,
+    apply_bestagon_library,
+    write_qca_layout_svg,
+    write_sqd_layout,
+    write_qca_layout_svg_params,
+    hexagonalization,
 )
 
-app = Flask(__name__)
+# Determine the absolute path to the directory containing this script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Set the path to the static folder
+static_dir = os.path.join(current_dir, "./static")
+
+app = Flask(__name__, static_folder=static_dir)
+
 app.secret_key = "your_secret_key"  # Replace with a secure secret key
 
 # In-memory storage for user layouts
@@ -120,6 +134,9 @@ def place_gate():
         if node != 0:
             return jsonify({"success": False, "error": "Tile already has a gate."})
 
+        if gate_type in ["bufc", "bufk"] and layout.z() == 0:
+            layout.resize((layout.x(), layout.y(), 1))
+
         # Enforce incoming signal constraints
         if gate_type == "pi":
             if params:
@@ -149,10 +166,14 @@ def place_gate():
                     else:
                         if layout.has_northern_incoming_signal((source_x, source_y, 0)):
                             source_z = 1
-                        elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                        elif layout.has_northern_incoming_signal(
+                            (source_x, source_y, 1)
+                        ):
                             source_z = 0
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 elif source_y < y:
                     if layout.has_eastern_outgoing_signal((source_x, source_y, 0)):
                         source_z = 1
@@ -161,10 +182,14 @@ def place_gate():
                     else:
                         if layout.has_northern_incoming_signal((source_x, source_y, 0)):
                             source_z = 0
-                        elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                        elif layout.has_northern_incoming_signal(
+                            (source_x, source_y, 1)
+                        ):
                             source_z = 1
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 else:
                     return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -177,10 +202,14 @@ def place_gate():
                     else:
                         if layout.has_northern_incoming_signal((source_x, source_y, 0)):
                             source_z = 0
-                        elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                        elif layout.has_northern_incoming_signal(
+                            (source_x, source_y, 1)
+                        ):
                             source_z = 1
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 elif source_y < y:
                     if layout.has_eastern_outgoing_signal((source_x, source_y, 0)):
                         source_z = 1
@@ -189,10 +218,14 @@ def place_gate():
                     else:
                         if layout.has_northern_incoming_signal((source_x, source_y, 0)):
                             source_z = 1
-                        elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
+                        elif layout.has_northern_incoming_signal(
+                            (source_x, source_y, 1)
+                        ):
                             source_z = 0
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 else:
                     return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -259,7 +292,9 @@ def place_gate():
                         elif layout.has_northern_incoming_signal((first_x, first_y, 1)):
                             first_z = 0
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 elif first_y < y:
                     if layout.has_eastern_outgoing_signal((first_x, first_y, 0)):
                         first_z = 1
@@ -271,7 +306,9 @@ def place_gate():
                         elif layout.has_northern_incoming_signal((first_x, first_y, 1)):
                             first_z = 1
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 else:
                     return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -287,7 +324,9 @@ def place_gate():
                         elif layout.has_northern_incoming_signal((first_x, first_y, 1)):
                             first_z = 1
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 elif first_y < y:
                     if layout.has_eastern_outgoing_signal((first_x, first_y, 0)):
                         first_z = 1
@@ -299,7 +338,9 @@ def place_gate():
                         elif layout.has_northern_incoming_signal((first_x, first_y, 1)):
                             first_z = 0
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 else:
                     return jsonify({"success": False, "error": "Something went wrong."})
             second_x = int(params["second"]["position"]["x"])
@@ -315,10 +356,14 @@ def place_gate():
                     else:
                         if layout.has_northern_incoming_signal((second_x, second_y, 0)):
                             second_z = 1
-                        elif layout.has_northern_incoming_signal((second_x, second_y, 1)):
+                        elif layout.has_northern_incoming_signal(
+                            (second_x, second_y, 1)
+                        ):
                             second_z = 0
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 elif second_y < y:
                     if layout.has_eastern_outgoing_signal((second_x, second_y, 0)):
                         second_z = 1
@@ -327,10 +372,14 @@ def place_gate():
                     else:
                         if layout.has_northern_incoming_signal((second_x, second_y, 0)):
                             second_z = 0
-                        elif layout.has_northern_incoming_signal((second_x, second_y, 1)):
+                        elif layout.has_northern_incoming_signal(
+                            (second_x, second_y, 1)
+                        ):
                             second_z = 1
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 else:
                     return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -343,10 +392,14 @@ def place_gate():
                     else:
                         if layout.has_northern_incoming_signal((second_x, second_y, 0)):
                             second_z = 0
-                        elif layout.has_northern_incoming_signal((second_x, second_y, 1)):
+                        elif layout.has_northern_incoming_signal(
+                            (second_x, second_y, 1)
+                        ):
                             second_z = 1
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 elif second_y < y:
                     if layout.has_eastern_outgoing_signal((second_x, second_y, 0)):
                         second_z = 1
@@ -355,10 +408,14 @@ def place_gate():
                     else:
                         if layout.has_northern_incoming_signal((second_x, second_y, 0)):
                             second_z = 1
-                        elif layout.has_northern_incoming_signal((second_x, second_y, 1)):
+                        elif layout.has_northern_incoming_signal(
+                            (second_x, second_y, 1)
+                        ):
                             second_z = 0
                         else:
-                            return jsonify({"success": False, "error": "Something went wrong."})
+                            return jsonify(
+                                {"success": False, "error": "Something went wrong."}
+                            )
                 else:
                     return jsonify({"success": False, "error": "Something went wrong."})
             first_node = layout.get_node((first_x, first_y, first_z))
@@ -468,7 +525,9 @@ def delete_gate():
                     # Get the other input signals, if any
                     incoming_tiles = layout.fanins(outgoing_tile)
                     incoming_signals = [
-                        layout.make_signal(layout.get_node(inp)) for inp in incoming_tiles if inp != (x, y, 1)
+                        layout.make_signal(layout.get_node(inp))
+                        for inp in incoming_tiles
+                        if inp != (x, y, 1)
                     ]
                     layout.move_node(
                         layout.get_node(outgoing_tile), outgoing_tile, incoming_signals
@@ -486,7 +545,9 @@ def delete_gate():
                 # Get the other input signals, if any
                 incoming_tiles = layout.fanins(outgoing_tile)
                 incoming_signals = [
-                    layout.make_signal(layout.get_node(inp)) for inp in incoming_tiles if inp != (x, y)
+                    layout.make_signal(layout.get_node(inp))
+                    for inp in incoming_tiles
+                    if inp != (x, y)
                 ]
                 layout.move_node(
                     layout.get_node(outgoing_tile), outgoing_tile, incoming_signals
@@ -531,7 +592,9 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
                         source_z = 0
                     else:
-                        return jsonify({"success": False, "error": "Something went wrong."})
+                        return jsonify(
+                            {"success": False, "error": "Something went wrong."}
+                        )
             elif source_y < target_y:
                 if layout.has_eastern_outgoing_signal((source_x, source_y, 0)):
                     source_z = 1
@@ -543,7 +606,9 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
                         source_z = 1
                     else:
-                        return jsonify({"success": False, "error": "Something went wrong."})
+                        return jsonify(
+                            {"success": False, "error": "Something went wrong."}
+                        )
             else:
                 return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -559,7 +624,9 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
                         source_z = 1
                     else:
-                        return jsonify({"success": False, "error": "Something went wrong."})
+                        return jsonify(
+                            {"success": False, "error": "Something went wrong."}
+                        )
             elif source_y < target_y:
                 if layout.has_eastern_outgoing_signal((source_x, source_y, 0)):
                     source_z = 1
@@ -571,7 +638,9 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
                         source_z = 0
                     else:
-                        return jsonify({"success": False, "error": "Something went wrong."})
+                        return jsonify(
+                            {"success": False, "error": "Something went wrong."}
+                        )
             else:
                 return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -587,7 +656,9 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((target_x, target_y, 1)):
                         target_z = 0
                     else:
-                        return jsonify({"success": False, "error": "Something went wrong."})
+                        return jsonify(
+                            {"success": False, "error": "Something went wrong."}
+                        )
             elif source_y < target_y:
                 if layout.has_eastern_outgoing_signal((target_x, target_y, 0)):
                     target_z = 1
@@ -599,7 +670,9 @@ def connect_gates():
                     elif layout.has_western_incoming_signal((target_x, target_y, 1)):
                         target_z = 0
                     else:
-                        return jsonify({"success": False, "error": "Something went wrong."})
+                        return jsonify(
+                            {"success": False, "error": "Something went wrong."}
+                        )
             else:
                 return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -615,7 +688,9 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((target_x, target_y, 1)):
                         target_z = 0
                     else:
-                        return jsonify({"success": False, "error": "Something went wrong."})
+                        return jsonify(
+                            {"success": False, "error": "Something went wrong."}
+                        )
             elif source_y < target_y:
                 if layout.has_eastern_outgoing_signal((target_x, target_y, 0)):
                     target_z = 0
@@ -627,7 +702,9 @@ def connect_gates():
                     elif layout.has_western_incoming_signal((target_x, target_y, 1)):
                         target_z = 0
                     else:
-                        return jsonify({"success": False, "error": "Something went wrong."})
+                        return jsonify(
+                            {"success": False, "error": "Something went wrong."}
+                        )
             else:
                 return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -678,7 +755,9 @@ def connect_gates():
             )
 
         # Create a connection from source_node to target_node
-        route_path(layout, [(source_x, source_y, source_z), (target_x, target_y, target_z)])
+        route_path(
+            layout, [(source_x, source_y, source_z), (target_x, target_y, target_z)]
+        )
 
         return jsonify({"success": True})
     except Exception as e:
@@ -767,7 +846,7 @@ def export_layout():
             return jsonify({"success": False, "error": "Layout not found."})
 
         # Serialize the layout to XML file
-        file_path = f"layout_{session_id}.fgl"
+        file_path = f"layout.fgl"
         write_fgl_layout(layout, file_path)
 
         # Send the XML file as an attachment
@@ -775,7 +854,65 @@ def export_layout():
             file_path,
             as_attachment=True,
             mimetype="application/xml",
-            download_name="layout.xml",
+            download_name=file_path,
+        )
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+    finally:
+        # Clean up the file if it exists
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+
+@app.route("/export_qca_layout", methods=["GET"])
+def export_qca_layout():
+    try:
+        session_id = session.get("session_id")
+        layout = layouts.get(session_id)
+
+        if not layout:
+            return jsonify({"success": False, "error": "Layout not found."})
+
+        cell_level_layout = apply_qca_one_library(layout)
+        file_path = f"layout_qca.svg"
+        params = write_qca_layout_svg_params()
+        write_qca_layout_svg(cell_level_layout, file_path, params)
+
+        return send_file(
+            file_path,
+            as_attachment=True,
+            mimetype="application/svg",
+            download_name=file_path,
+        )
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+    finally:
+        # Clean up the file if it exists
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+
+@app.route("/export_sidb_layout", methods=["GET"])
+def export_sidb_layout():
+    try:
+        session_id = session.get("session_id")
+        layout = layouts.get(session_id)
+
+        if not layout:
+            return jsonify({"success": False, "error": "Layout not found."})
+
+        hex_layout = hexagonalization(layout)
+        cell_level_layout = apply_bestagon_library(hex_layout)
+        file_path = f"layout_sidb.sqd"
+        write_sqd_layout(cell_level_layout, file_path)
+
+        return send_file(
+            file_path,
+            as_attachment=True,
+            mimetype="application/xml",
+            download_name=file_path,
         )
 
     except Exception as e:
@@ -1026,12 +1163,27 @@ def apply_gold():
                         }
                     )
 
-        # Apply gold
+        # Parameters
+        data = request.json
         params = graph_oriented_layout_design_params()
-        params.timeout = 1000
+        params.return_first = bool(data.get("return_first"))
+
+        # todo: Not updated in bindings
+        mode = data.get("mode")
+        if mode == "HIGH_EFFICIENCY":
+            params.high_effort_mode = False
+        else:
+            params.high_effort_mode = True
+
+        params.timeout = int(data.get("timeout"))
+        params.num_vertex_expansions = int(data.get("num_vertex_expansions"))
+        params.planar = bool(data.get("planar"))
+
+        # todo: Missing in bindings
+        cost = data.get("cost")
+
         layout = graph_oriented_layout_design(network, params)
         layouts[session_id] = layout  # Update the layout in the session
-
         layout_dimensions, gates = get_layout_information(layout)
 
         return jsonify(
@@ -1048,13 +1200,6 @@ def apply_optimization():
         layout = layouts.get(session_id)
         params = post_layout_optimization_params()
 
-        _, max_coord = layout.bounding_box_2d()
-        layout_size = (max_coord.x + 1) * (max_coord.y + 1)
-        if layout_size > 10000:
-            params.max_gate_relocations = 1
-        if layout_size > 100000:
-            params.max_gate_relocations = 0
-
         if not layout:
             return jsonify(
                 {
@@ -1062,6 +1207,17 @@ def apply_optimization():
                     "error": "Layout not found. Please create a layout first",
                 }
             )
+
+        data = request.json
+        max_gate_relocations = data.get("max_gate_relocations")
+        if max_gate_relocations != "max":
+            params.max_gate_relocations = max_gate_relocations
+
+        params.optimize_pos_only = bool(data.get("optimize_pos_only"))
+        params.planar_optimization = bool(data.get("planar_optimization"))
+
+        # todo: Not in bindings yet
+        # params.timeout = int(data.get("timeout"))
 
         post_layout_optimization(layout, params)
         layouts[session_id] = layout  # Update the layout in the session
@@ -1090,8 +1246,18 @@ def get_layout_information(layout):
                 elif layout.is_wire(node):
                     gate_type = "buf"
                     above_gate = layout.above(layout.get_tile(node))
-                    if not layout.is_empty_tile(above_gate):
-                        if (layout.fanins(above_gate)[0].x == layout.west(layout.get_tile(node)).x and layout.fanouts(above_gate)[0].x == layout.east(layout.get_tile(node)).x) or (layout.fanins(above_gate)[0].x == layout.north(layout.get_tile(node)).x and layout.fanouts(above_gate)[0].x == layout.south(layout.get_tile(node)).x):
+                    if not layout.is_empty_tile(above_gate) and layout.z() == 1:
+                        if (
+                            layout.fanins(above_gate)[0].x
+                            == layout.west(layout.get_tile(node)).x
+                            and layout.fanouts(above_gate)[0].x
+                            == layout.east(layout.get_tile(node)).x
+                        ) or (
+                            layout.fanins(above_gate)[0].x
+                            == layout.north(layout.get_tile(node)).x
+                            and layout.fanouts(above_gate)[0].x
+                            == layout.south(layout.get_tile(node)).x
+                        ):
                             gate_type = "bufc"
                         else:
                             gate_type = "bufk"
@@ -1127,6 +1293,10 @@ def get_layout_information(layout):
                         )
                 gates.append(gate_info)
     return layout_dimensions, gates
+
+
+def start_server():
+    app.run(debug=False)
 
 
 if __name__ == "__main__":
