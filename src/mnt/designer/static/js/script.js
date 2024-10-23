@@ -1423,7 +1423,7 @@ $(document).ready(() => {
       const nodePosition = node.position();
       const tileNumber = node.data("tileNumber");
 
-      let source = "middle";
+      let source = "Middle";
       const inEdges = node
         .connectedEdges()
         .filter((edge) => edge.data("target") === node.id());
