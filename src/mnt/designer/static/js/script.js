@@ -302,16 +302,31 @@ $(document).ready(() => {
     }
 
     // Collect the parameter values from the modal form
-    const return_first = $("#gold-return-first").val() === "true";
-    const mode = $("#gold-mode").val();
-    const timeout = parseInt($("#gold-timeout").val());
+    // Return Layout Option
+    const return_first =
+      $("input[name='gold-return-first']:checked").val() === "true";
+
+    // Effort Mode
+    const mode = $("input[name='gold-mode']:checked").val();
+
+    // Timeout (ms)
+    const timeout = parseInt($("#gold-timeout").val(), 10);
+
+    // Number of Vertex Expansions
     const num_vertex_expansions = parseInt(
       $("#gold-num-vertex-expansions").val(),
+      10,
     );
-    const planar = $("#gold-planar").val() === "true";
+
+    // Planar Option
+    const planar = $("input[name='gold-planar']:checked").val() === "true";
+
+    // Cost Metric (Remains as Select)
     const cost = $("#gold-cost").val();
+
+    // Enable Multithreading
     const enable_multithreading =
-      $("#gold-enable-multithreading").val() === "true";
+      $("input[name='gold-enable-multithreading']:checked").val() === "true";
 
     // Validate parameters (optional)
     if (
@@ -371,54 +386,76 @@ $(document).ready(() => {
     });
   });
 
-  // Show or hide the custom input based on the selection
-  $("#max-gate-relocations").on("change", function () {
-    if ($(this).val() === "custom") {
-      // Show the custom input field if "Custom" is selected
+  function toggleCustomRelocations() {
+    const selectedValue = $("input[name='max-gate-relocations']:checked").val();
+    if (selectedValue === "custom") {
       $("#custom-relocations-input").removeClass("d-none");
     } else {
-      // Hide the custom input field if "Max" is selected
       $("#custom-relocations-input").addClass("d-none");
+      // Optionally, reset the custom input value when hidden
+      $("#custom-max-gate-relocations").val("");
     }
-  });
+  }
 
-  // Optimization Button Click Event
+  // Initial check on page load
+  toggleCustomRelocations();
+
+  // Event listener for changes in Max Gate Relocations
+  $("input[name='max-gate-relocations']").on("change", toggleCustomRelocations);
+
+  // Event listener for the "Optimize" button
   $("#apply-optimization").on("click", function () {
     // Disable the apply button to prevent multiple clicks
-    $("#apply-optimization").prop("disabled", true);
-    updateMessageArea("Optimizing layout...", "info");
+    $("#apply-optimization").prop("disabled", true).text("Applying...");
 
-    // Get the value for max_gate_relocations (either "max" or a custom number)
-    let max_gate_relocations = $("#max-gate-relocations").val();
-    if (max_gate_relocations === "custom") {
-      // If custom is selected, get the value from the input
-      max_gate_relocations = parseInt($("#custom-max-gate-relocations").val());
-      if (isNaN(max_gate_relocations) || max_gate_relocations < 0) {
+    // Collect parameters
+    let maxGateRelocations = $(
+      "input[name='max-gate-relocations']:checked",
+    ).val();
+    let customRelocations = null;
+    if (maxGateRelocations === "custom") {
+      customRelocations =
+        parseInt($("#custom-max-gate-relocations").val(), 10) || 0;
+    }
+
+    // Optimize PO Positions Only
+    const optimizePosOnly =
+      $("input[name='optimize-pos-only']:checked").val() === "true";
+
+    // Planar Optimization
+    const planarOptimization =
+      $("input[name='planar-optimization']:checked").val() === "true";
+
+    // Timeout
+    const timeout = parseInt($("#optimization-timeout").val(), 10);
+
+    // Validate Timeout
+    if (isNaN(timeout) || timeout < 1 || timeout > 10000) {
+      updateMessageArea(
+        "Invalid timeout value. Please enter a number between 1 and 10000.",
+        "danger",
+      );
+      $("#apply-optimization").prop("disabled", false).text("Optimize");
+      return;
+    }
+
+    // If "Custom" is selected, ensure custom relocations is a valid number
+    if (maxGateRelocations === "custom") {
+      if (isNaN(customRelocations) || customRelocations < 0) {
         updateMessageArea(
-          "Please enter a valid number for custom relocations.",
+          "Invalid custom relocations value. Please enter a non-negative number.",
           "danger",
         );
-        $("#apply-optimization").prop("disabled", false);
+        $("#apply-optimization").prop("disabled", false).text("Optimize");
         return;
       }
     }
 
-    const optimize_pos_only = $("#optimize-pos-only").val() === "true";
-    const planar_optimization = $("#planar-optimization").val() === "true";
-    const timeout = parseInt($("#optimization-timeout").val());
-
-    // Validate the timeout
-    if (isNaN(timeout) || timeout < 1 || timeout > 10000) {
-      updateMessageArea("Invalid input. Please check the timeout.", "danger");
-      $("#apply-optimization").prop("disabled", false);
-      return;
-    }
-
     // Create a data object with parameters to be sent
     const requestData = {
-      max_gate_relocations: max_gate_relocations, // Send "max" or the custom number
-      optimize_pos_only: optimize_pos_only,
-      planar_optimization: planar_optimization,
+      max_gate_relocations: customRelocations, // None for max, else int
+      optimize_pos_only: optimizePosOnly,
+      planar_optimization: planarOptimization,
       timeout: timeout,
     };
 
@@ -429,7 +466,7 @@ $(document).ready(() => {
       contentType: "application/json",
       data: JSON.stringify(requestData), // Send the parameters as JSON
       success: function (data) {
-        $("#apply-optimization").prop("disabled", false);
+        $("#apply-optimization").prop("disabled", false).text("Optimize");
         if (data.success) {
           // Update the layout with the new data after the optimization algorithm is applied
           updateLayout(data.layoutDimensions, data.gates);
@@ -443,7 +480,7 @@ $(document).ready(() => {
         }
       },
       error: function (jqXHR, textStatus, errorThrown) {
-        $("#apply-optimization").prop("disabled", false);
+        $("#apply-optimization").prop("disabled", false).text("Optimize");
         updateMessageArea("Error optimizing layout: " + errorThrown, "danger");
       },
     });
@@ -801,7 +838,7 @@ $(document).ready(() => {
     cy.fit();
   }
 
-  function createTileNumberSVG(number, gateType) {
+  function createTileNumberSVG(number, gateType, orientation) {
     // Determine the text color based on the tile number
     const textColor = number === 1 || number === 2 ? "#000000" : "#ffffff"; // Black for 1 and 2, white for 3 and 4
 
@@ -839,6 +876,201 @@ $(document).ready(() => {
                 <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
             </svg>
         `;
+    } else if (gateType === "buf") {
+      switch (orientation) {
+        case "TB":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Vertical Line with Arrow -->
+                            <path d="M 48 8 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
+                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+        case "LR":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Horizontal Line with Arrow -->
+                            <path d="M 8 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
+                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+        case "LB":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Line from Left to Middle -->
+                            <path d="M 8 48 L 48 48" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Line from Middle to Bottom -->
+                            <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead at Bottom -->
+                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+        case "TR":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Line from Top to Middle -->
+                            <path d="M 48 8 L 48 48" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Line from Middle to Right -->
+                            <path d="M 48 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead at Right -->
+                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+        case "LM":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Horizontal Line stopping in the middle -->
+                            <path d="M 8 48 L 48 48" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead at the middle -->
+                            <path d="M 54.65 48 L 45.65 52.5 L 48 48 L 45.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+        case "TM":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Vertical Line stopping in the middle -->
+                            <path d="M 48 8 L 48 48" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead at the middle -->
+                            <path d="M 48 54.65 L 52.5 45.65 L 48 48 L 43.5 45.65 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+        case "MR":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Horizontal Line from Middle to Right -->
+                            <path d="M 48 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead pointing to the right -->
+                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+        case "MB":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Vertical Line from Middle to Bottom -->
+                            <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead pointing down -->
+                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+        case "MM":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Dot in the middle -->
+                            <circle cx="48" cy="48" r="4" fill="black"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+      }
+    } else if (gateType === "fanout") {
+      switch (orientation) {
+        case "T":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Vertical Line from Top to Center -->
+                            <path d="M 48 8 L 48 48" fill="none" stroke="black" stroke-width="3"/>
+                    
+                            <!-- Horizontal Line from Center to Right -->
+                            <path d="M 48 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead pointing right -->
+                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
+                    
+                            <!-- Vertical Line from Center to Bottom -->
+                            <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead pointing down -->
+                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+        case "L":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Horizontal Line from Left to Center -->
+                            <path d="M 8 48 L 48 48" fill="none" stroke="black" stroke-width="3"/>
+                    
+                            <!-- Horizontal Line from Center to Right -->
+                            <path d="M 48 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead pointing right -->
+                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
+                    
+                            <!-- Vertical Line from Center to Bottom -->
+                            <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead pointing down -->
+                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+        case "M":
+          return `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
+                        <g>
+                            <!-- Horizontal Line from Center to Right -->
+                            <path d="M 48 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead pointing right -->
+                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
+                    
+                            <!-- Vertical Line from Center to Bottom -->
+                            <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
+                            <!-- Arrowhead pointing down -->
+                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
+                        </g>
+                    </svg>
+                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
+                </svg>
+            `;
+      }
     } else {
       return `
             <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
@@ -1187,63 +1419,24 @@ $(document).ready(() => {
             node.data("gateType", `${gateType.toUpperCase()}`);
             node.data("hasGate", true);
 
-            // Apply custom colors based on the gate type
-            let gateColor = node.data("color"); // Default to tile color
-
-            switch (gateType) {
-              case "pi":
-                gateColor = "lightgreen";
-                break;
-              case "po":
-                gateColor = "lightblue";
-                break;
-              case "inv":
-                gateColor = "lightcoral";
-                break;
-              case "buf":
-                gateColor = "palegoldenrod";
-                break;
-              case "bufc":
-                gateColor = "lightsalmon";
-                break;
-              case "bufk":
-                gateColor = "lightseagreen";
-                break;
-              case "and":
-                gateColor = "lightpink";
-                break;
-              case "or":
-                gateColor = "lightyellow";
-                break;
-              case "nor":
-                gateColor = "plum";
-                break;
-              case "xor":
-                gateColor = "lightcyan";
-                break;
-              case "xnor":
-                gateColor = "lavender";
-                break;
-              default:
-                gateColor = node.data("color");
+            if (data.updateFirstBufToFanout) {
+              const nodeNode = cy.getElementById(
+                `node-${params.first.position.x}-${params.first.position.y}`,
+              );
+              nodeNode.data("gateType", "fanout");
+              nodeNode.data("label", "");
+              updateGateLabel(nodeNode);
+            }
+            if (data.updateSecondBufToFanout) {
+              const nodeNode = cy.getElementById(
+                `node-${params.second.position.x}-${params.second.position.y}`,
+              );
+              nodeNode.data("gateType", "fanout");
+              nodeNode.data("label", "");
+              updateGateLabel(nodeNode);
             }
 
-            // Apply the chosen background color
-            node.style("background-color", gateColor);
-
-            // Ensure the tile number remains visible
-            const tileNumber = node.data("tileNumber");
-            node.style({
-              "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-                createTileNumberSVG(tileNumber),
-              )}`,
-              "background-width": "100%",
-              "background-height": "100%",
-              "background-position": "bottom right",
-              "background-repeat": "no-repeat",
-              "background-clip": "none",
-            });
-
+            updateGateLabel(node);
             // Resolve the Promise after successful placement
             resolve();
           } else {
@@ -1262,37 +1455,194 @@ $(document).ready(() => {
     });
   }
 
+  function updateGateLabel(node) {
+    const gateType = node.data("gateType").toLowerCase();
+    let gateColor;
+
+    switch (gateType) {
+      case "pi":
+        gateColor = "lightgreen";
+        break;
+      case "po":
+        gateColor = "lightblue";
+        break;
+      case "inv":
+        gateColor = "lightcoral";
+        break;
+      case "buf":
+        gateColor = "palegoldenrod";
+        break;
+      case "bufc":
+        gateColor = "lightsalmon";
+        break;
+      case "bufk":
+        gateColor = "lightseagreen";
+        break;
+      case "fanout":
+        gateColor = "orange";
+        break;
+      case "and":
+        gateColor = "lightpink";
+        break;
+      case "or":
+        gateColor = "lightyellow";
+        break;
+      case "nor":
+        gateColor = "plum";
+        break;
+      case "xor":
+        gateColor = "lightcyan";
+        break;
+      case "xnor":
+        gateColor = "lavender";
+        break;
+      default:
+        gateColor = node.data("color");
+    }
+
+    // Apply the chosen background color
+    node.style("background-color", gateColor);
+
+    if (gateType === "buf") {
+      // Set the label and background image for bufc
+      node.data("label", "");
+      const nodePosition = node.position();
+      const tileNumber = node.data("tileNumber");
+
+      let source = "middle";
+      const inEdges = node
+        .connectedEdges()
+        .filter((edge) => edge.data("target") === node.id());
+      // Loop through each outgoing edge to determine where the connection is coming from
+      inEdges.forEach((edge) => {
+        const sourceNode = cy.getElementById(edge.data("source"));
+        const sourcePosition = sourceNode.position();
+        if (sourcePosition.x < nodePosition.x) {
+          source = "left";
+        } else if (sourcePosition.y < nodePosition.y) {
+          source = "top";
+        } else {
+          console.log(sourcePosition, nodePosition);
+        }
+      });
+
+      let target = "middle";
+      const outEdges = node
+        .connectedEdges()
+        .filter((edge) => edge.data("source") === node.id());
+      // Loop through each outgoing edge to determine where the connection is coming from
+      outEdges.forEach((edge) => {
+        const targetNode = cy.getElementById(edge.data("target"));
+        const targetPosition = targetNode.position();
+
+        if (nodePosition.x < targetPosition.x) {
+          target = "right";
+        } else if (nodePosition.y < targetPosition.y) {
+          target = "bottom";
+        } else {
+          console.log(nodePosition, targetPosition);
+        }
+      });
+
+      let orientation;
+      if (source === "left" && target === "right") {
+        orientation = "LR";
+      } else if (source === "left" && target === "bottom") {
+        orientation = "LB";
+      } else if (source === "left" && target === "middle") {
+        orientation = "LM";
+      } else if (source === "top" && target === "bottom") {
+        orientation = "TB";
+      } else if (source === "top" && target === "right") {
+        orientation = "TR";
+      } else if (source === "top" && target === "middle") {
+        orientation = "TM";
+      } else if (source === "middle" && target === "bottom") {
+        orientation = "MB";
+      } else if (source === "middle" && target === "right") {
+        orientation = "MR";
+      } else if (source === "middle" && target === "middle") {
+        orientation = "MM";
+      }
+
+      node.style({
+        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
+          createTileNumberSVG(tileNumber, gateType, orientation),
+        )}`,
+        "background-fit": "contain", // Ensure the image fits within the node
+      });
+    } else if (gateType === "fanout") {
+      node.data("label", "");
+      const nodePosition = node.position();
+      const tileNumber = node.data("tileNumber");
+
+      let source = "middle";
+      const inEdges = node
+        .connectedEdges()
+        .filter((edge) => edge.data("target") === node.id());
+      // Loop through each outgoing edge to determine where the connection is coming from
+      inEdges.forEach((edge) => {
+        const sourceNode = cy.getElementById(edge.data("source"));
+        const sourcePosition = sourceNode.position();
+        if (sourcePosition.x < nodePosition.x) {
+          source = "left";
+        } else if (sourcePosition.y < nodePosition.y) {
+          source = "top";
+        } else {
+          console.log(sourcePosition, nodePosition);
+        }
+      });
+
+      let orientation;
+      if (source === "left") {
+        orientation = "L";
+      } else if (source === "top") {
+        orientation = "T";
+      } else if (source === "middle") {
+        orientation = "M";
+      }
+
+      node.style({
+        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
+          createTileNumberSVG(tileNumber, gateType, orientation),
+        )}`,
+        "background-fit": "contain", // Ensure the image fits within the node
+      });
+    } else if (gateType === "bufc" || gateType === "bufk") {
+      // Set the label and background image for bufc
+      node.data("label", "");
+      const tileNumber = node.data("tileNumber");
+      node.style({
+        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
+          createTileNumberSVG(tileNumber, gateType),
+        )}`,
+        "background-fit": "contain", // Ensure the image fits within the node
+      });
+    } else {
+      // Ensure the tile number remains visible
+      const tileNumber = node.data("tileNumber");
+      node.style({
+        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
+          createTileNumberSVG(tileNumber, gateType),
+        )}`,
+        "background-width": "100%",
+        "background-height": "100%",
+        "background-position": "bottom right",
+        "background-repeat": "no-repeat",
+        "background-clip": "none",
+      });
+    }
+  }
+
   // Update gate labels and colors based on the number of outgoing connections
   function updateGateLabels() {
     cy.nodes().forEach((node) => {
-      const gateType = node.data("label").toLowerCase();
-      if (gateType === "buf" || gateType === "fanout") {
-        const outEdges = node
-          .connectedEdges()
-          .filter((edge) => edge.data("source") === node.id());
-        if (outEdges.length === 2) {
-          node.data("label", "FANOUT");
-          node.style("background-color", "orange");
-        } else {
-          node.data("label", "BUF");
-          node.style("background-color", "palegoldenrod");
-        }
-      } else if (gateType === "bufc" || gateType === "bufk") {
-        // Set the label and background image for bufc
-        node.data("label", "");
-        const tileNumber = node.data("tileNumber");
-        node.style({
-          "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-            createTileNumberSVG(tileNumber, gateType),
-          )}`,
-          "background-fit": "contain", // Ensure the image fits within the node
-        });
-      }
+      updateGateLabel(node);
     });
   }
 
   function deleteGate(node) {
-    const gateType = node.data("label").toLowerCase(); // Assuming labels are in uppercase like 'PI'
+    const gateType = node.data("gateType").toLowerCase(); // Assuming labels are in uppercase like 'PI'
 
     // Check if the gate is a PI
     if (gateType === "pi") {
@@ -1320,8 +1670,29 @@ $(document).ready(() => {
           node.data("hasGate", false);
           node.style("background-color", node.data("color"));
 
+          const inEdges = connectedEdges.filter(
+            (edge) => edge.data("target") === node.id(),
+          );
+          // Loop through each outgoing edge to determine where the connection is coming from
+          inEdges.forEach((edge) => {
+            const sourceNode = cy.getElementById(edge.data("source"));
+            if (sourceNode.data("gateType").toLowerCase() === "fanout") {
+              sourceNode.data("gateType", "buf");
+            }
+            updateGateLabel(sourceNode);
+          });
+
+          const outEdges = connectedEdges.filter(
+            (edge) => edge.data("source") === node.id(),
+          );
+          // Loop through each outgoing edge to determine where the connection is coming from
+          outEdges.forEach((edge) => {
+            const targetNode = cy.getElementById(edge.data("target"));
+            updateGateLabel(targetNode);
+          });
+
           // Update gate labels after deletion
-          updateGateLabels();
+          updateGateLabel(node);
 
           updateMessageArea("Gate deleted successfully.", "success");
         } else {
@@ -1396,7 +1767,7 @@ $(document).ready(() => {
       maxFanouts = 0;
     } else if (
       sourceGateType === "buf" ||
-      sourceGateType === " bufc" ||
+      sourceGateType === "bufc" ||
       sourceGateType === "bufk" ||
       sourceGateType === "fanout"
     ) {
@@ -1438,6 +1809,9 @@ $(document).ready(() => {
               target: selectedNode.id(),
             },
           });
+          if (data.updateBufToFanout) {
+            selectedSourceNode.data("gateType", "Fanout");
+          }
 
           // Update gate labels after adding the edge
           updateGateLabels();
@@ -1826,64 +2200,6 @@ $(document).ready(() => {
     node.data("gateType", `${gateType.toUpperCase()}`);
     node.data("hasGate", true);
 
-    // Apply custom colors based on the gate type
-    let gateColor = node.data("color"); // Default to tile color
-
-    switch (gateType) {
-      case "pi":
-        gateColor = "lightgreen";
-        break;
-      case "po":
-        gateColor = "lightblue";
-        break;
-      case "inv":
-        gateColor = "lightcoral";
-        break;
-      case "buf":
-        gateColor = "palegoldenrod";
-        break;
-      case "bufc":
-        gateColor = "lightsalmon";
-        break;
-      case "bufk":
-        gateColor = "lightseagreen";
-        break;
-      case "fanout":
-        gateColor = "orange";
-        break;
-      case "and":
-        gateColor = "lightpink";
-        break;
-      case "or":
-        gateColor = "lightyellow";
-        break;
-      case "nor":
-        gateColor = "plum";
-        break;
-      case "xor":
-        gateColor = "lightcyan";
-        break;
-      case "xnor":
-        gateColor = "lavender";
-        break;
-      default:
-        gateColor = node.data("color");
-    }
-
-    // Apply the chosen background color
-    node.style("background-color", gateColor);
-
-    // Ensure the tile number remains visible
-    const tileNumber = node.data("tileNumber");
-    node.style({
-      "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-        createTileNumberSVG(tileNumber),
-      )}`,
-      "background-width": "100%",
-      "background-height": "100%",
-      "background-position": "bottom right",
-      "background-repeat": "no-repeat",
-      "background-clip": "none",
-    });
+    updateGateLabel(node);
   }
 });

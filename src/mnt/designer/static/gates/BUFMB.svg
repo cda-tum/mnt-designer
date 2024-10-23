@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="98px" height="98px" viewBox="0 0 98 98">
+    <g>
+        <!-- Vertical Line from Middle to Bottom -->
+        <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
+        <!-- Arrowhead pointing down -->
+        <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
+    </g>
+</svg>

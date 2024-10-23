@@ -1,7 +1,6 @@
 import os
 import tempfile
 import uuid
-from xml.sax import parse
 
 from flask import Flask, jsonify, render_template, request, send_file, session
 
@@ -15,6 +14,8 @@ from mnt.pyfiction import (
     orthogonal,
     graph_oriented_layout_design,
     graph_oriented_layout_design_params,
+    gold_effort_mode,
+    gold_cost_objective,
     equivalence_checking,
     equivalence_checking_stats,
     eq_type,
@@ -124,6 +125,8 @@ def place_gate():
         y = int(data["y"])
         gate_type = data["gate_type"]
         params = data["params"]
+        update_first = False
+        update_second = False
 
         session_id = session["session_id"]
         layout = layouts.get(session_id)
@@ -268,6 +271,8 @@ def place_gate():
                 layout.create_not(layout.make_signal(source_node), (x, y))
             elif gate_type == "buf":
                 layout.create_buf(layout.make_signal(source_node), (x, y))
+            if layout.fanout_size(source_node) == 2:
+                update_first = True
         elif gate_type in ["and", "or", "nor", "xor", "xnor", "bufc", "bufk"]:
             if "first" not in params or "second" not in params:
                 return jsonify(
@@ -488,13 +493,26 @@ def place_gate():
             elif gate_type in ["bufc", "bufk"]:
                 layout.create_buf(layout.make_signal(first_node), (x, y, 0))
                 layout.create_buf(layout.make_signal(second_node), (x, y, 1))
+            if layout.fanout_size(first_node) == 2:
+                update_first = True
+            if layout.fanout_size(second_node) == 2:
+                update_second = True
         else:
             return jsonify(
                 {"success": False, "error": f"Unsupported gate type: {gate_type}"}
             )
 
-        print(layout)
-        return jsonify({"success": True})
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "updateFirstBufToFanout": update_first,
+                    "updateSecondBufToFanout": update_second,
+                }
+            ),
+            200,
+        )
+
     except Exception as e:
         print(f"Error in place_gate: {e}")
         return jsonify({"success": False, "error": str(e)})
@@ -759,7 +777,20 @@ def connect_gates():
             layout, [(source_x, source_y, source_z), (target_x, target_y, target_z)]
         )
 
-        return jsonify({"success": True})
+        if layout.fanout_size(source_node) == 2:
+            update = True
+        else:
+            update = False
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "updateBufToFanout": update,
+                }
+            ),
+            200,
+        )
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -1168,19 +1199,33 @@ def apply_gold():
         params = graph_oriented_layout_design_params()
         params.return_first = bool(data.get("return_first"))
 
-        # todo: Not updated in bindings
         mode = data.get("mode")
         if mode == "HIGH_EFFICIENCY":
-            params.high_effort_mode = False
+            params.mode = gold_effort_mode.HIGH_EFFICIENCY
+        elif mode == "HIGH_EFFORT":
+            params.mode = gold_effort_mode.HIGH_EFFORT
+        elif mode == "HIGHEST_EFFORT":
+            params.mode = gold_effort_mode.HIGHEST_EFFORT
         else:
-            params.high_effort_mode = True
+            return jsonify({"success": False, "error": f"Unknown mode: {mode}."})
 
         params.timeout = int(data.get("timeout"))
         params.num_vertex_expansions = int(data.get("num_vertex_expansions"))
         params.planar = bool(data.get("planar"))
 
-        # todo: Missing in bindings
         cost = data.get("cost")
+        if cost == "AREA":
+            params.cost = gold_cost_objective.AREA
+        elif cost == "WIRES":
+            params.cost = gold_cost_objective.WIRES
+        elif cost == "CROSSINGS":
+            params.cost = gold_cost_objective.CROSSINGS
+        elif cost == "ACP":
+            params.cost = gold_cost_objective.ACP
+        else:
+            return jsonify(
+                {"success": False, "error": f"Unknown cost objective: {cost}."}
+            )
 
         layout = graph_oriented_layout_design(network, params)
         layouts[session_id] = layout  # Update the layout in the session
@@ -1210,14 +1255,13 @@ def apply_optimization():
 
         data = request.json
         max_gate_relocations = data.get("max_gate_relocations")
-        if max_gate_relocations != "max":
-            params.max_gate_relocations = max_gate_relocations
+        if max_gate_relocations:
+            params.max_gate_relocations = int(max_gate_relocations)
 
         params.optimize_pos_only = bool(data.get("optimize_pos_only"))
         params.planar_optimization = bool(data.get("planar_optimization"))
 
-        # todo: Not in bindings yet
-        # params.timeout = int(data.get("timeout"))
+        params.timeout = int(data.get("timeout"))
 
         post_layout_optimization(layout, params)
         layouts[session_id] = layout  # Update the layout in the session
@@ -1261,6 +1305,8 @@ def get_layout_information(layout):
                             gate_type = "bufc"
                         else:
                             gate_type = "bufk"
+                    if layout.fanout_size(node) == 2:
+                        gate_type = "fanout"
                 elif layout.is_inv(node):
                     gate_type = "inv"
                 elif layout.is_and(node):

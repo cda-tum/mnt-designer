@@ -356,11 +356,11 @@
           aria-labelledby="goldModalLabel"
           aria-hidden="true"
         >
-          <div class="modal-dialog">
+          <div class="modal-dialog modal-lg">
             <div class="modal-content">
               <div class="modal-header">
                 <h5 class="modal-title" id="goldModalLabel">
-                  Specify gold Parameters
+                  Specify Gold Parameters
                 </h5>
                 <button
                   type="button"
@@ -371,26 +371,95 @@
               </div>
               <div class="modal-body">
                 <form id="gold-params-form">
-                  <div class="mb-3">
-                    <label for="gold-return-first" class="form-label"
-                      >Return first found layout</label
-                    >
-                    <select class="form-select" id="gold-return-first">
-                      <option value="false">False</option>
-                      <option value="true">True</option>
-                    </select>
-                  </div>
-                  <div class="mb-3">
-                    <label for="gold-mode" class="form-label"
-                      >Effort Mode</label
-                    >
-                    <select class="form-select" id="gold-mode">
-                      <option value="HIGH_EFFORT">HIGH_EFFORT</option>
-                      <option value="HIGH_EFFICIENCY">HIGH_EFFICIENCY</option>
-                      <option value="HIGHEST_EFFORT">HIGHEST_EFFORT</option>
-                    </select>
-                  </div>
-                  <div class="mb-3">
+                  <!-- Return Layout Options -->
+                  <fieldset class="mb-4">
+                    <legend class="form-label">Return Layout Option</legend>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="gold-return-first"
+                        id="gold-return-first-best"
+                        value="false"
+                        checked
+                      />
+                      <label
+                        class="form-check-label"
+                        for="gold-return-first-best"
+                      >
+                        Return Best Found Layout
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="gold-return-first"
+                        id="gold-return-first-first"
+                        value="true"
+                      />
+                      <label
+                        class="form-check-label"
+                        for="gold-return-first-first"
+                      >
+                        Return First Found Layout
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <!-- Effort Mode Options -->
+                  <fieldset class="mb-4">
+                    <legend class="form-label">Effort Mode</legend>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="gold-mode"
+                        id="gold-mode-high-effort"
+                        value="HIGH_EFFORT"
+                        checked
+                      />
+                      <label
+                        class="form-check-label"
+                        for="gold-mode-high-effort"
+                      >
+                        High Effort
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="gold-mode"
+                        id="gold-mode-high-efficiency"
+                        value="HIGH_EFFICIENCY"
+                      />
+                      <label
+                        class="form-check-label"
+                        for="gold-mode-high-efficiency"
+                      >
+                        High Efficiency
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="gold-mode"
+                        id="gold-mode-highest-effort"
+                        value="HIGHEST_EFFORT"
+                      />
+                      <label
+                        class="form-check-label"
+                        for="gold-mode-highest-effort"
+                      >
+                        Highest Effort
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <!-- Timeout Input -->
+                  <div class="mb-4">
                     <label for="gold-timeout" class="form-label"
                       >Timeout (ms)</label
                     >
@@ -402,47 +471,134 @@
                       min="1"
                       max="10000"
                       value="1000"
+                      aria-describedby="gold-timeout-help"
                     />
+                    <small id="gold-timeout-help" class="form-text text-muted">
+                      Specify the maximum time in milliseconds before the
+                      process times out. Available range: 1-10000.
+                    </small>
                   </div>
-                  <div class="mb-3">
-                    <label for="gold-num-vertex-expansions" class="form-label"
-                      >Number of Vertex Expansions</label
-                    >
+
+                  <!-- Number of Vertex Expansions Input -->
+                  <div class="mb-4">
+                    <label for="gold-num-vertex-expansions" class="form-label">
+                      Number of Vertex Expansions
+                    </label>
                     <input
                       type="number"
                       class="form-control"
                       id="gold-num-vertex-expansions"
                       placeholder="Enter value (1-100)"
                       min="1"
-                      max="10"
+                      max="100"
                       value="4"
+                      aria-describedby="gold-num-vertex-expansions-help"
                     />
-                  </div>
-                  <div class="mb-3">
-                    <label for="gold-planar" class="form-label">Planar</label>
-                    <select class="form-select" id="gold-planar">
-                      <option value="false">False</option>
-                      <option value="true">True</option>
-                    </select>
-                  </div>
-                  <div class="mb-3">
-                    <label for="gold-cost" class="form-label">Cost</label>
-                    <select class="form-select" id="gold-cost">
-                      <option value="AREA">AREA</option>
-                      <option value="WIRES">WIRES</option>
-                      <option value="CROSSINGS">CROSSINGS</option>
-                      <option value="ACP">ACP</option>
-                    </select>
-                  </div>
-                  <div class="mb-3">
-                    <label for="gold-enable-multithreading" class="form-label"
-                      >Enable Multithreading</label
+                    <small
+                      id="gold-num-vertex-expansions-help"
+                      class="form-text text-muted"
                     >
-                    <select class="form-select" id="gold-enable-multithreading">
-                      <option value="false">False</option>
-                      <option value="true">True</option>
-                    </select>
+                      Define how many vertices can be expanded during the layout
+                      design. Available range: 1-100.
+                    </small>
                   </div>
+
+                  <!-- Planar Options -->
+                  <fieldset class="mb-4">
+                    <legend class="form-label">Planarity</legend>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="gold-planar"
+                        id="gold-planar-permit-crossings"
+                        value="false"
+                        checked
+                      />
+                      <label
+                        class="form-check-label"
+                        for="gold-planar-permit-crossings"
+                      >
+                        Permit Crossings
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="gold-planar"
+                        id="gold-planar-fully-planar"
+                        value="true"
+                      />
+                      <label
+                        class="form-check-label"
+                        for="gold-planar-fully-planar"
+                      >
+                        Fully Planar
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <!-- Cost Options -->
+                  <div class="mb-4">
+                    <label for="gold-cost" class="form-label">Cost</label>
+                    <select
+                      class="form-select"
+                      id="gold-cost"
+                      aria-label="Select Cost Metric"
+                    >
+                      <option value="AREA">Layout Area</option>
+                      <option value="WIRES">Number of Wires</option>
+                      <option value="CROSSINGS">Number of Crossings</option>
+                      <option value="ACP">Area-Crossing Product</option>
+                    </select>
+                    <small id="gold-cost-help" class="form-text text-muted">
+                      Choose the primary metric for evaluating layout costs.
+                    </small>
+                  </div>
+
+                  <!-- Enable Multithreading Options -->
+                  <fieldset class="mb-4">
+                    <legend class="form-label">Enable Multithreading</legend>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="gold-enable-multithreading"
+                        id="gold-enable-multithreading-single"
+                        value="false"
+                        checked
+                      />
+                      <label
+                        class="form-check-label"
+                        for="gold-enable-multithreading-single"
+                      >
+                        Single-Threading
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="gold-enable-multithreading"
+                        id="gold-enable-multithreading-multi"
+                        value="true"
+                      />
+                      <label
+                        class="form-check-label"
+                        for="gold-enable-multithreading-multi"
+                      >
+                        Multi-Threading
+                      </label>
+                    </div>
+                    <small
+                      id="gold-multithreading-help"
+                      class="form-text text-muted"
+                    >
+                      Enable multi-threading to improve performance on
+                      multi-core processors.
+                    </small>
+                  </fieldset>
                 </form>
               </div>
               <div class="modal-footer">
@@ -454,7 +610,7 @@
                   Close
                 </button>
                 <button type="button" id="apply-gold" class="btn btn-primary">
-                  Apply gold
+                  Run gold
                 </button>
               </div>
             </div>
@@ -471,6 +627,7 @@
           <i class="fas fa-cogs"></i> Optimize Layout
         </button>
         <!-- Post-Layout Optimization Parameter Modal -->
+        <!-- Optimization Parameters Modal -->
         <div
           class="modal fade"
           id="optimizationModal"
@@ -478,7 +635,7 @@
           aria-labelledby="optimizationModalLabel"
           aria-hidden="true"
         >
-          <div class="modal-dialog">
+          <div class="modal-dialog modal-lg">
             <div class="modal-content">
               <div class="modal-header">
                 <h5 class="modal-title" id="optimizationModalLabel">
@@ -493,47 +650,151 @@
               </div>
               <div class="modal-body">
                 <form id="optimization-params-form">
-                  <div class="mb-3">
-                    <label for="max-gate-relocations" class="form-label"
-                      >Max Gate Relocations</label
-                    >
-                    <select class="form-select" id="max-gate-relocations">
-                      <option value="max">Max</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </div>
-                  <!-- Custom value input, shown only if "Custom" is selected -->
-                  <div class="mb-3 d-none" id="custom-relocations-input">
-                    <label for="custom-max-gate-relocations" class="form-label"
-                      >Enter Custom Number of Relocations</label
-                    >
+                  <!-- Max Gate Relocations -->
+                  <fieldset class="mb-4">
+                    <legend class="form-label">Max Gate Relocations</legend>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="max-gate-relocations"
+                        id="max-gate-relocations-max"
+                        value="max"
+                        checked
+                      />
+                      <label
+                        class="form-check-label"
+                        for="max-gate-relocations-max"
+                      >
+                        Max
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="max-gate-relocations"
+                        id="max-gate-relocations-custom"
+                        value="custom"
+                      />
+                      <label
+                        class="form-check-label"
+                        for="max-gate-relocations-custom"
+                      >
+                        Custom
+                      </label>
+                    </div>
+                  </fieldset>
+
+                  <!-- Custom Relocations Input (Shown Only If "Custom" is Selected) -->
+                  <div class="mb-4 d-none" id="custom-relocations-input">
+                    <label for="custom-max-gate-relocations" class="form-label">
+                      Enter Custom Number of Relocations
+                    </label>
                     <input
                       type="number"
                       class="form-control"
                       id="custom-max-gate-relocations"
                       placeholder="Enter custom value (0 to max number of tiles)"
                       min="0"
+                      aria-describedby="custom-relocations-help"
                     />
-                  </div>
-                  <div class="mb-3">
-                    <label for="optimize-pos-only" class="form-label"
-                      >Optimize PO Positions Only</label
+                    <small
+                      id="custom-relocations-help"
+                      class="form-text text-muted"
                     >
-                    <select class="form-select" id="optimize-pos-only">
-                      <option value="false" selected>False</option>
-                      <option value="true">True</option>
-                    </select>
+                      Specify a custom number of gate relocations. Leave as 0
+                      for wiring reduction only.
+                    </small>
                   </div>
-                  <div class="mb-3">
-                    <label for="planar-optimization" class="form-label"
-                      >Planar Optimization</label
+
+                  <!-- Optimize PO Positions Only -->
+                  <fieldset class="mb-4">
+                    <legend class="form-label">Optimize Gate Positions</legend>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="optimize-pos-only"
+                        id="optimize-pos-only-false"
+                        value="false"
+                        checked
+                      />
+                      <label
+                        class="form-check-label"
+                        for="optimize-pos-only-false"
+                      >
+                        All Gates
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="optimize-pos-only"
+                        id="optimize-pos-only-true"
+                        value="true"
+                      />
+                      <label
+                        class="form-check-label"
+                        for="optimize-pos-only-true"
+                      >
+                        POs only
+                      </label>
+                    </div>
+                    <small
+                      id="optimize-pos-only-help"
+                      class="form-text text-muted"
                     >
-                    <select class="form-select" id="planar-optimization">
-                      <option value="false" selected>False</option>
-                      <option value="true">True</option>
-                    </select>
-                  </div>
-                  <div class="mb-3">
+                      Choose which gate positions should be optimized.
+                    </small>
+                  </fieldset>
+
+                  <!-- Planar Optimization -->
+                  <fieldset class="mb-4">
+                    <legend class="form-label">Planarity</legend>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="planar-optimization"
+                        id="planar-optimization-false"
+                        value="false"
+                        checked
+                      />
+                      <label
+                        class="form-check-label"
+                        for="planar-optimization-false"
+                      >
+                        Enable Crossings
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="radio"
+                        name="planar-optimization"
+                        id="planar-optimization-true"
+                        value="true"
+                      />
+                      <label
+                        class="form-check-label"
+                        for="planar-optimization-true"
+                      >
+                        Reduce Crossings/ Keep Planarity
+                      </label>
+                    </div>
+                    <small
+                      id="planar-optimization-help"
+                      class="form-text text-muted"
+                    >
+                      Enable planar optimization to ensure that no new crossings
+                      are created and planar layouts stay planar.
+                    </small>
+                  </fieldset>
+
+                  <!-- Timeout Input -->
+                  <div class="mb-4">
                     <label for="optimization-timeout" class="form-label"
                       >Timeout (ms)</label
                     >
@@ -545,7 +806,15 @@
                       min="1"
                       max="10000"
                       value="1000"
+                      aria-describedby="optimization-timeout-help"
                     />
+                    <small
+                      id="optimization-timeout-help"
+                      class="form-text text-muted"
+                    >
+                      Specify the maximum time in milliseconds before the
+                      optimization process times out. Available range: 1-10000.
+                    </small>
                   </div>
                 </form>
               </div>
@@ -562,7 +831,7 @@
                   id="apply-optimization"
                   class="btn btn-primary"
                 >
-                  Apply Optimization
+                  Optimize
                 </button>
               </div>
             </div>
