@@ -149,6 +149,9 @@ $(document).ready(() => {
         case "connect":
           handleConnectGates(node);
           break;
+        case "move":
+          handleMoveGate(node);
+          break;
         case "delete":
           deleteGate(node);
           break;
@@ -1702,11 +1705,118 @@ $(document).ready(() => {
           }
 
           // Update gate labels after adding the edge
-          updateGateLabels();
+          updateGateLabel(selectedNode);
+          updateGateLabel(selectedSourceNode);
 
           updateMessageArea("Gates connected successfully.", "success");
         } else {
           updateMessageArea("Failed to connect gates: " + data.error, "danger");
+        }
+        selectedSourceNode.removeClass("highlighted");
+        selectedNode.removeClass("highlighted");
+        selectedSourceNode = null;
+        selectedNode = null;
+      },
+      error: () => {
+        updateMessageArea("Error communicating with the server.", "danger");
+        selectedSourceNode.removeClass("highlighted");
+        selectedNode.removeClass("highlighted");
+        selectedSourceNode = null;
+        selectedNode = null;
+      },
+    });
+  }
+
+  // Connect two existing gates
+  function handleMoveGate(node) {
+    if (!selectedSourceNode) {
+      if (!node.data("hasGate")) {
+        updateMessageArea("Please select a gate to move.", "danger");
+        return;
+      }
+      selectedSourceNode = node;
+      selectedSourceNode.addClass("highlighted");
+      updateMessageArea("Now select the location to move the gate to.", "info");
+    } else if (!selectedNode) {
+      if (node.data("hasGate")) {
+        updateMessageArea("Target location has to be empty.", "danger");
+        return;
+      }
+      selectedNode = node;
+      selectedNode.addClass("highlighted");
+
+      // Create connection
+      moveGate();
+    }
+  }
+
+  function moveGate() {
+    const sourceX = selectedSourceNode.data("x");
+    const sourceY = selectedSourceNode.data("y");
+    const sourceGateType = selectedSourceNode.data("gateType").toLowerCase();
+    const targetX = selectedNode.data("x");
+    const targetY = selectedNode.data("y");
+
+    // Proceed to connect
+    $.ajax({
+      url: "/move_gate",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({
+        source_x: sourceX,
+        source_y: sourceY,
+        source_gate_type: sourceGateType,
+        target_x: targetX,
+        target_y: targetY,
+      }),
+      success: (data) => {
+        if (data.success) {
+          const connectedEdges = selectedSourceNode.connectedEdges();
+          cy.remove(connectedEdges);
+
+          // Reset node label and style
+          selectedSourceNode.data("label", "");
+          selectedSourceNode.data("gateType", "");
+          selectedSourceNode.data("hasGate", false);
+          selectedSourceNode.style(
+            "background-color",
+            selectedSourceNode.data("color"),
+          );
+
+          const inEdges = connectedEdges.filter(
+            (edge) => edge.data("target") === selectedSourceNode.id(),
+          );
+          // Loop through each outgoing edge to determine where the connection is coming from
+          inEdges.forEach((edge) => {
+            const sourceNode = cy.getElementById(edge.data("source"));
+            if (sourceNode.data("gateType").toLowerCase() === "fanout") {
+              sourceNode.data("gateType", "buf");
+            }
+            updateGateLabel(sourceNode);
+          });
+
+          const outEdges = connectedEdges.filter(
+            (edge) => edge.data("source") === selectedSourceNode.id(),
+          );
+          // Loop through each outgoing edge to determine where the connection is coming from
+          outEdges.forEach((edge) => {
+            const targetNode = cy.getElementById(edge.data("target"));
+            updateGateLabel(targetNode);
+          });
+
+          selectedNode.data("label", `${sourceGateType.toUpperCase()}`);
+          selectedNode.data("gateType", `${sourceGateType.toUpperCase()}`);
+          selectedNode.data("hasGate", true);
+
+          if (data.updatedGateType) {
+            selectedNode.data("gateType", "buf");
+            selectedNode.data("label", "");
+          }
+          updateGateLabel(selectedNode);
+
+          updateMessageArea("Gate moved successfully.", "success");
+        } else {
+          updateMessageArea("Failed to move gate: " + data.error, "danger");
         }
         selectedSourceNode.removeClass("highlighted");
         selectedNode.removeClass("highlighted");

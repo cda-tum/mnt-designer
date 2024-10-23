@@ -795,6 +795,91 @@ def connect_gates():
         return jsonify({"success": False, "error": str(e)})
 
 
+@app.route("/move_gate", methods=["POST"])
+def move_gate():
+    try:
+        data = request.json
+        session_id = session["session_id"]
+        layout = layouts.get(session_id)
+        if not layout:
+            return jsonify({"success": False, "error": "Layout not found."})
+
+        source_x = int(data["source_x"])
+        source_y = int(data["source_y"])
+        source_gate_type = data["source_gate_type"]
+        source_z = 0 if source_gate_type not in ("bufc", "bufk") else 1
+        source = (source_x, source_y, source_z)
+        target_x = int(data["target_x"])
+        target_y = int(data["target_y"])
+        target_z = 0
+        target = (target_x, target_y, target_z)
+
+        source_node = layout.get_node(source)
+
+        if not source_node:
+            return jsonify({"success": False, "error": "Source gate not found."})
+
+        # Find all gates that use this node as an input signal
+        outgoing_tiles = layout.fanouts(source)
+
+        # Update signals for dependent nodes
+        for outgoing_tile in outgoing_tiles:
+            # Get the other input signals, if any
+            incoming_tiles = layout.fanins(outgoing_tile)
+            incoming_signals = [
+                layout.make_signal(layout.get_node(inp))
+                for inp in incoming_tiles
+                if inp != source
+            ]
+            layout.move_node(
+                layout.get_node(outgoing_tile), outgoing_tile, incoming_signals
+            )
+
+        layout.move_node(source_node, target, [])
+
+        if source_gate_type in ("bufc", "bufk"):
+            source_z = 1
+            source = (source_x, source_y, source_z)
+            target_z = 1
+            target = (target_x, target_y, target_z)
+
+            source_node = layout.get_node(source)
+
+            if not source_node:
+                return jsonify({"success": False, "error": "Source gate not found."})
+
+            # Find all gates that use this node as an input signal
+            outgoing_tiles = layout.fanouts(source)
+            incoming_tiles = layout.fanins(source)
+            layout.move_node(source_node, target, [])
+            layout.clear_tile(source)
+
+            # Update signals for dependent nodes
+            for outgoing_tile in outgoing_tiles:
+                # Get the other input signals, if any
+                incoming_tiles = layout.fanins(outgoing_tile)
+                incoming_signals = [
+                    layout.make_signal(layout.get_node(inp))
+                    for inp in incoming_tiles
+                    if inp != source
+                ]
+                layout.move_node(
+                    layout.get_node(outgoing_tile), outgoing_tile, incoming_signals
+                )
+
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "updatedGateType": True is source_gate_type == "fanout",
+                }
+            ),
+            200,
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
 @app.route("/check_design_rules", methods=["POST"])
 def check_design_rules():
     try:
@@ -1250,6 +1335,15 @@ def apply_optimization():
                 {
                     "success": False,
                     "error": "Layout not found. Please create a layout first",
+                }
+            )
+
+        warnings, errors = check_design_rules_function(layout)
+        if errors + warnings != 0:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": f"Layout has {errors} errors and {warnings} warnings. Fix them first before optimizing.",
                 }
             )
 
