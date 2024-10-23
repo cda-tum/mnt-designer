@@ -956,7 +956,7 @@ $(document).ready(() => {
           ${drawArrowhead("M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z")} <!-- Down Arrowhead -->
         </g>
       `,
-        LEFT: `
+        Left: `
         <g>
           ${drawLine(8, 48, 48, 48)} <!-- Horizontal Line from Left to Center -->
           ${drawLine(48, 48, 77.9, 48)} <!-- Horizontal Line from Center to Right -->
@@ -965,7 +965,7 @@ $(document).ready(() => {
           ${drawArrowhead("M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z")} <!-- Down Arrowhead -->
         </g>
       `,
-        MIDDLE: `
+        Middle: `
         <g>
           ${drawLine(48, 48, 77.9, 48)} <!-- Horizontal Line from Center to Right -->
           ${drawArrowhead("M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z")} <!-- Right Arrowhead -->
