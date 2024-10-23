@@ -872,122 +872,122 @@ $(document).ready(() => {
       bufc: `
       <g>
         ${drawLine(8, 48, 77.9, 48)} <!-- Horizontal Line -->
-        ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+        ${drawArrowhead("M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z")} <!-- Right Arrowhead -->
 
         ${drawLine(48, 8, 48, 77.9)} <!-- Vertical Line -->
-        ${drawArrowhead('M 48 84.65 L 43.5 75.65 L 48 77.9 L 52.5 75.65 Z')} <!-- Down Arrowhead -->
+        ${drawArrowhead("M 48 84.65 L 43.5 75.65 L 48 77.9 L 52.5 75.65 Z")} <!-- Down Arrowhead -->
       </g>
     `,
       bufk: `
       <g>
         ${drawLine(8, 48, 38, 48)} <!-- Line from Left to Middle -->
         ${drawLine(38, 48, 45.55, 78.2)} <!-- Line to Bottom Right -->
-        ${drawArrowhead('M 47.19 84.75 L 40.64 77.11 L 45.55 78.2 L 49.37 74.92 Z')} <!-- Arrowhead at Bottom Right -->
+        ${drawArrowhead("M 47.19 84.75 L 40.64 77.11 L 45.55 78.2 L 49.37 74.92 Z")} <!-- Arrowhead at Bottom Right -->
 
         ${drawLine(48, 8, 58, 48)} <!-- Line from Top to Middle Right -->
         ${drawLine(58, 48, 77.9, 48)} <!-- Line from Middle Right to Right -->
-        ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+        ${drawArrowhead("M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z")} <!-- Right Arrowhead -->
       </g>
     `,
       buf: {
-        TB: `
+        TopToBottom: `
         <g>
           ${drawLine(48, 8, 48, 77.9)} <!-- Vertical Line -->
-          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+          ${drawArrowhead("M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z")} <!-- Down Arrowhead -->
         </g>
       `,
-        LR: `
+        LeftToRight: `
         <g>
           ${drawLine(8, 48, 77.9, 48)} <!-- Horizontal Line -->
-          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+          ${drawArrowhead("M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z")} <!-- Right Arrowhead -->
         </g>
       `,
-        LB: `
+        LeftToBottom: `
         <g>
           ${drawLine(8, 48, 48, 48)} <!-- Line from Left to Middle -->
           ${drawLine(48, 48, 48, 77.9)} <!-- Line from Middle to Bottom -->
-          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+          ${drawArrowhead("M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z")} <!-- Down Arrowhead -->
         </g>
       `,
-        TR: `
+        TopToRight: `
         <g>
           ${drawLine(48, 8, 48, 48)} <!-- Line from Top to Middle -->
           ${drawLine(48, 48, 77.9, 48)} <!-- Line from Middle to Right -->
-          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+          ${drawArrowhead("M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z")} <!-- Right Arrowhead -->
         </g>
       `,
-        LM: `
+        LeftToMiddle: `
         <g>
           ${drawLine(8, 48, 48, 48)} <!-- Horizontal Line -->
-          ${drawArrowhead('M 54.65 48 L 45.65 52.5 L 48 48 L 45.65 43.5 Z')} <!-- Arrowhead at Middle Right -->
+          ${drawArrowhead("M 54.65 48 L 45.65 52.5 L 48 48 L 45.65 43.5 Z")} <!-- Arrowhead at Middle Right -->
         </g>
       `,
-        TM: `
+        TopToMiddle: `
         <g>
           ${drawLine(48, 8, 48, 48)} <!-- Vertical Line -->
-          ${drawArrowhead('M 48 54.65 L 52.5 45.65 L 48 48 L 43.5 45.65 Z')} <!-- Arrowhead at Middle Down -->
+          ${drawArrowhead("M 48 54.65 L 52.5 45.65 L 48 48 L 43.5 45.65 Z")} <!-- Arrowhead at Middle Down -->
         </g>
       `,
-        MR: `
+        MiddleToRight: `
         <g>
           ${drawLine(48, 48, 77.9, 48)} <!-- Line from Middle to Right -->
-          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+          ${drawArrowhead("M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z")} <!-- Right Arrowhead -->
         </g>
       `,
-        MB: `
+        MiddleToBottom: `
         <g>
           ${drawLine(48, 48, 48, 77.9)} <!-- Line from Middle to Bottom -->
-          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+          ${drawArrowhead("M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z")} <!-- Down Arrowhead -->
         </g>
       `,
-        MM: `
+        MiddleToMiddle: `
         <g>
           ${drawCircle(48, 48, 4)} <!-- Dot in the middle -->
         </g>
       `,
       },
       fanout: {
-        T: `
+        Top: `
         <g>
           ${drawLine(48, 8, 48, 48)} <!-- Vertical Line from Top to Center -->
           ${drawLine(48, 48, 77.9, 48)} <!-- Horizontal Line from Center to Right -->
-          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+          ${drawArrowhead("M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z")} <!-- Right Arrowhead -->
           ${drawLine(48, 48, 48, 77.9)} <!-- Vertical Line from Center to Bottom -->
-          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+          ${drawArrowhead("M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z")} <!-- Down Arrowhead -->
         </g>
       `,
-        L: `
+        LEFT: `
         <g>
           ${drawLine(8, 48, 48, 48)} <!-- Horizontal Line from Left to Center -->
           ${drawLine(48, 48, 77.9, 48)} <!-- Horizontal Line from Center to Right -->
-          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+          ${drawArrowhead("M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z")} <!-- Right Arrowhead -->
           ${drawLine(48, 48, 48, 77.9)} <!-- Vertical Line from Center to Bottom -->
-          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+          ${drawArrowhead("M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z")} <!-- Down Arrowhead -->
         </g>
       `,
-        M: `
+        MIDDLE: `
         <g>
           ${drawLine(48, 48, 77.9, 48)} <!-- Horizontal Line from Center to Right -->
-          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+          ${drawArrowhead("M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z")} <!-- Right Arrowhead -->
           ${drawLine(48, 48, 48, 77.9)} <!-- Vertical Line from Center to Bottom -->
-          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+          ${drawArrowhead("M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z")} <!-- Down Arrowhead -->
         </g>
       `,
       },
     };
 
     // Retrieve the appropriate SVG content based on gateType and orientation
-    let content = '';
+    let content = "";
 
     if (gateSVGContent[gateType]) {
-      if (typeof gateSVGContent[gateType] === 'string') {
+      if (typeof gateSVGContent[gateType] === "string") {
         content = gateSVGContent[gateType];
       } else if (gateSVGContent[gateType][orientation]) {
         content = gateSVGContent[gateType][orientation];
       }
     } else {
       // Default content if gateType or orientation doesn't match
-      content = '';
+      content = "";
     }
 
     // Return the assembled SVG
@@ -1432,15 +1432,15 @@ $(document).ready(() => {
         const sourceNode = cy.getElementById(edge.data("source"));
         const sourcePosition = sourceNode.position();
         if (sourcePosition.x < nodePosition.x) {
-          source = "left";
+          source = "Left";
         } else if (sourcePosition.y < nodePosition.y) {
-          source = "top";
+          source = "Top";
         } else {
           console.log(sourcePosition, nodePosition);
         }
       });
 
-      let target = "middle";
+      let target = "Middle";
       const outEdges = node
         .connectedEdges()
         .filter((edge) => edge.data("source") === node.id());
@@ -1450,34 +1450,15 @@ $(document).ready(() => {
         const targetPosition = targetNode.position();
 
         if (nodePosition.x < targetPosition.x) {
-          target = "right";
+          target = "Right";
         } else if (nodePosition.y < targetPosition.y) {
-          target = "bottom";
+          target = "Bottom";
         } else {
           console.log(nodePosition, targetPosition);
         }
       });
 
-      let orientation;
-      if (source === "left" && target === "right") {
-        orientation = "LR";
-      } else if (source === "left" && target === "bottom") {
-        orientation = "LB";
-      } else if (source === "left" && target === "middle") {
-        orientation = "LM";
-      } else if (source === "top" && target === "bottom") {
-        orientation = "TB";
-      } else if (source === "top" && target === "right") {
-        orientation = "TR";
-      } else if (source === "top" && target === "middle") {
-        orientation = "TM";
-      } else if (source === "middle" && target === "bottom") {
-        orientation = "MB";
-      } else if (source === "middle" && target === "right") {
-        orientation = "MR";
-      } else if (source === "middle" && target === "middle") {
-        orientation = "MM";
-      }
+      const orientation = source + "To" + target;
 
       node.style({
         "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
@@ -1490,7 +1471,7 @@ $(document).ready(() => {
       const nodePosition = node.position();
       const tileNumber = node.data("tileNumber");
 
-      let source = "middle";
+      let source = "Middle";
       const inEdges = node
         .connectedEdges()
         .filter((edge) => edge.data("target") === node.id());
@@ -1499,22 +1480,15 @@ $(document).ready(() => {
         const sourceNode = cy.getElementById(edge.data("source"));
         const sourcePosition = sourceNode.position();
         if (sourcePosition.x < nodePosition.x) {
-          source = "left";
+          source = "Left";
         } else if (sourcePosition.y < nodePosition.y) {
-          source = "top";
+          source = "Top";
         } else {
           console.log(sourcePosition, nodePosition);
         }
       });
 
-      let orientation;
-      if (source === "left") {
-        orientation = "L";
-      } else if (source === "top") {
-        orientation = "T";
-      } else if (source === "middle") {
-        orientation = "M";
-      }
+      const orientation = source;
 
       node.style({
         "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
