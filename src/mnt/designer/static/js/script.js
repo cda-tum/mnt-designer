@@ -842,242 +842,156 @@ $(document).ready(() => {
     // Determine the text color based on the tile number
     const textColor = number === 1 || number === 2 ? "#000000" : "#ffffff"; // Black for 1 and 2, white for 3 and 4
 
-    if (gateType === "bufc") {
-      return `
-            <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                    <g>
-                        <!-- Horizontal Line with Arrow -->
-                        <path d="M 8 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
-                        <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-                
-                        <!-- Vertical Line with Arrow -->
-                        <path d="M 48 8 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
-                        <path d="M 48 84.65 L 43.5 75.65 L 48 77.9 L 52.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
-                    </g>
-                </svg>
-                <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-            </svg>
-        `;
-    } else if (gateType === "bufk") {
-      return `
-            <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                    <g>
-                        <!-- First arrow and line -->
-                        <path d="M 8 48 L 38 48 L 45.55 78.2" fill="none" stroke="black" stroke-width="3"/>
-                        <path d="M 47.19 84.75 L 40.64 77.11 L 45.55 78.2 L 49.37 74.92 Z" fill="black" stroke="black" stroke-width="3"/>
-                
-                        <!-- Second arrow and line -->
-                        <path d="M 48 8 L 58 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
-                        <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-                    </g>
-                </svg>
-                <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-            </svg>
-        `;
-    } else if (gateType === "buf") {
-      switch (orientation) {
-        case "TB":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Vertical Line with Arrow -->
-                            <path d="M 48 8 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
-                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-        case "LR":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Horizontal Line with Arrow -->
-                            <path d="M 8 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
-                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-        case "LB":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Line from Left to Middle -->
-                            <path d="M 8 48 L 48 48" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Line from Middle to Bottom -->
-                            <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead at Bottom -->
-                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-        case "TR":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Line from Top to Middle -->
-                            <path d="M 48 8 L 48 48" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Line from Middle to Right -->
-                            <path d="M 48 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead at Right -->
-                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-        case "LM":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Horizontal Line stopping in the middle -->
-                            <path d="M 8 48 L 48 48" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead at the middle -->
-                            <path d="M 54.65 48 L 45.65 52.5 L 48 48 L 45.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-        case "TM":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Vertical Line stopping in the middle -->
-                            <path d="M 48 8 L 48 48" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead at the middle -->
-                            <path d="M 48 54.65 L 52.5 45.65 L 48 48 L 43.5 45.65 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-        case "MR":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Horizontal Line from Middle to Right -->
-                            <path d="M 48 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead pointing to the right -->
-                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-        case "MB":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Vertical Line from Middle to Bottom -->
-                            <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead pointing down -->
-                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-        case "MM":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Dot in the middle -->
-                            <circle cx="48" cy="48" r="4" fill="black"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-      }
-    } else if (gateType === "fanout") {
-      switch (orientation) {
-        case "T":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Vertical Line from Top to Center -->
-                            <path d="M 48 8 L 48 48" fill="none" stroke="black" stroke-width="3"/>
-                    
-                            <!-- Horizontal Line from Center to Right -->
-                            <path d="M 48 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead pointing right -->
-                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-                    
-                            <!-- Vertical Line from Center to Bottom -->
-                            <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead pointing down -->
-                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-        case "L":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Horizontal Line from Left to Center -->
-                            <path d="M 8 48 L 48 48" fill="none" stroke="black" stroke-width="3"/>
-                    
-                            <!-- Horizontal Line from Center to Right -->
-                            <path d="M 48 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead pointing right -->
-                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-                    
-                            <!-- Vertical Line from Center to Bottom -->
-                            <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead pointing down -->
-                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
-        case "M":
-          return `
-                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="50px" height="50px" viewBox="0 0 98 98">
-                        <g>
-                            <!-- Horizontal Line from Center to Right -->
-                            <path d="M 48 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead pointing right -->
-                            <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-                    
-                            <!-- Vertical Line from Center to Bottom -->
-                            <path d="M 48 48 L 48 77.9" fill="none" stroke="black" stroke-width="3"/>
-                            <!-- Arrowhead pointing down -->
-                            <path d="M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z" fill="black" stroke="black" stroke-width="3"/>
-                        </g>
-                    </svg>
-                    <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-                </svg>
-            `;
+    // Base SVG template
+    const baseSVG = (content) => `
+      <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
+        <svg width="50px" height="50px" viewBox="0 0 98 98">
+          ${content}
+        </svg>
+        <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">
+          ${number}
+        </text>
+      </svg>
+    `;
+
+    // Functions to draw lines and arrowheads with precise coordinates
+    const drawLine = (x1, y1, x2, y2) => {
+      return `<path d="M ${x1} ${y1} L ${x2} ${y2}" fill="none" stroke="black" stroke-width="3"/>`;
+    };
+
+    const drawArrowhead = (points) => {
+      return `<path d="${points}" fill="black" stroke="black" stroke-width="3"/>`;
+    };
+
+    const drawCircle = (cx, cy, r) => {
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="black"/>`;
+    };
+
+    // Mapping of gateTypes and orientations to SVG content
+    const gateSVGContent = {
+      bufc: `
+      <g>
+        ${drawLine(8, 48, 77.9, 48)} <!-- Horizontal Line -->
+        ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+
+        ${drawLine(48, 8, 48, 77.9)} <!-- Vertical Line -->
+        ${drawArrowhead('M 48 84.65 L 43.5 75.65 L 48 77.9 L 52.5 75.65 Z')} <!-- Down Arrowhead -->
+      </g>
+    `,
+      bufk: `
+      <g>
+        ${drawLine(8, 48, 38, 48)} <!-- Line from Left to Middle -->
+        ${drawLine(38, 48, 45.55, 78.2)} <!-- Line to Bottom Right -->
+        ${drawArrowhead('M 47.19 84.75 L 40.64 77.11 L 45.55 78.2 L 49.37 74.92 Z')} <!-- Arrowhead at Bottom Right -->
+
+        ${drawLine(48, 8, 58, 48)} <!-- Line from Top to Middle Right -->
+        ${drawLine(58, 48, 77.9, 48)} <!-- Line from Middle Right to Right -->
+        ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+      </g>
+    `,
+      buf: {
+        TB: `
+        <g>
+          ${drawLine(48, 8, 48, 77.9)} <!-- Vertical Line -->
+          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+        </g>
+      `,
+        LR: `
+        <g>
+          ${drawLine(8, 48, 77.9, 48)} <!-- Horizontal Line -->
+          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+        </g>
+      `,
+        LB: `
+        <g>
+          ${drawLine(8, 48, 48, 48)} <!-- Line from Left to Middle -->
+          ${drawLine(48, 48, 48, 77.9)} <!-- Line from Middle to Bottom -->
+          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+        </g>
+      `,
+        TR: `
+        <g>
+          ${drawLine(48, 8, 48, 48)} <!-- Line from Top to Middle -->
+          ${drawLine(48, 48, 77.9, 48)} <!-- Line from Middle to Right -->
+          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+        </g>
+      `,
+        LM: `
+        <g>
+          ${drawLine(8, 48, 48, 48)} <!-- Horizontal Line -->
+          ${drawArrowhead('M 54.65 48 L 45.65 52.5 L 48 48 L 45.65 43.5 Z')} <!-- Arrowhead at Middle Right -->
+        </g>
+      `,
+        TM: `
+        <g>
+          ${drawLine(48, 8, 48, 48)} <!-- Vertical Line -->
+          ${drawArrowhead('M 48 54.65 L 52.5 45.65 L 48 48 L 43.5 45.65 Z')} <!-- Arrowhead at Middle Down -->
+        </g>
+      `,
+        MR: `
+        <g>
+          ${drawLine(48, 48, 77.9, 48)} <!-- Line from Middle to Right -->
+          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+        </g>
+      `,
+        MB: `
+        <g>
+          ${drawLine(48, 48, 48, 77.9)} <!-- Line from Middle to Bottom -->
+          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+        </g>
+      `,
+        MM: `
+        <g>
+          ${drawCircle(48, 48, 4)} <!-- Dot in the middle -->
+        </g>
+      `,
+      },
+      fanout: {
+        T: `
+        <g>
+          ${drawLine(48, 8, 48, 48)} <!-- Vertical Line from Top to Center -->
+          ${drawLine(48, 48, 77.9, 48)} <!-- Horizontal Line from Center to Right -->
+          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+          ${drawLine(48, 48, 48, 77.9)} <!-- Vertical Line from Center to Bottom -->
+          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+        </g>
+      `,
+        L: `
+        <g>
+          ${drawLine(8, 48, 48, 48)} <!-- Horizontal Line from Left to Center -->
+          ${drawLine(48, 48, 77.9, 48)} <!-- Horizontal Line from Center to Right -->
+          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+          ${drawLine(48, 48, 48, 77.9)} <!-- Vertical Line from Center to Bottom -->
+          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+        </g>
+      `,
+        M: `
+        <g>
+          ${drawLine(48, 48, 77.9, 48)} <!-- Horizontal Line from Center to Right -->
+          ${drawArrowhead('M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z')} <!-- Right Arrowhead -->
+          ${drawLine(48, 48, 48, 77.9)} <!-- Vertical Line from Center to Bottom -->
+          ${drawArrowhead('M 48 84.65 L 52.5 75.65 L 48 77.9 L 43.5 75.65 Z')} <!-- Down Arrowhead -->
+        </g>
+      `,
+      },
+    };
+
+    // Retrieve the appropriate SVG content based on gateType and orientation
+    let content = '';
+
+    if (gateSVGContent[gateType]) {
+      if (typeof gateSVGContent[gateType] === 'string') {
+        content = gateSVGContent[gateType];
+      } else if (gateSVGContent[gateType][orientation]) {
+        content = gateSVGContent[gateType][orientation];
       }
     } else {
-      return `
-            <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50">
-                <text x="45" y="45" text-anchor="end" alignment-baseline="baseline" font-size="10" fill="${textColor}">${number}</text>
-            </svg>
-        `;
+      // Default content if gateType or orientation doesn't match
+      content = '';
     }
+
+    // Return the assembled SVG
+    return baseSVG(content);
   }
 
   // In handlePlaceGate function, check for PI gate

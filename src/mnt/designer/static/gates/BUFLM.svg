@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="98px" height="98px" viewBox="0 0 98 98">
-    <g>
-        <!-- Horizontal Line stopping in the middle -->
-        <path d="M 8 48 L 48 48" fill="none" stroke="black" stroke-width="3"/>
-        <!-- Arrowhead at the middle -->
-        <path d="M 54.65 48 L 45.65 52.5 L 48 48 L 45.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-    </g>
-</svg>

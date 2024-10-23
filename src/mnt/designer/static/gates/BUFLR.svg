@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="98px" height="98px" viewBox="0 0 98 98">
-    <g>
-        <!-- Horizontal Line with Arrow -->
-        <path d="M 8 48 L 77.9 48" fill="none" stroke="black" stroke-width="3"/>
-        <path d="M 84.65 48 L 75.65 52.5 L 77.9 48 L 75.65 43.5 Z" fill="black" stroke="black" stroke-width="3"/>
-    </g>
-</svg>
