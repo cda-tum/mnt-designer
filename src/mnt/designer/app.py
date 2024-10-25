@@ -461,6 +461,46 @@ def place_gate():
                         }
                     )
 
+            # Determine allowed number of fanouts
+            existing_fanouts_first_node = layout.fanouts((first_x, first_y, first_z))
+            num_fanouts_first_node = len(existing_fanouts_first_node)
+
+            if layout.is_po(first_node):
+                max_fanouts_first_node = 0
+            elif layout.is_wire(first_node) and not first_z == 1:
+                max_fanouts_first_node = 2
+            else:
+                max_fanouts_first_node = 1
+
+            if num_fanouts_first_node >= max_fanouts_first_node:
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"Gate at ({first_x}, {first_y}, {first_z}) cannot have more than {max_fanouts_first_node} outgoing connections.",
+                    }
+                )
+
+                # Determine allowed number of fanouts
+            existing_fanouts_second_node = layout.fanouts(
+                (second_x, second_y, second_z)
+            )
+            num_fanouts_second_node = len(existing_fanouts_second_node)
+
+            if layout.is_po(second_node):
+                max_fanouts_second_node = 0
+            elif layout.is_wire(second_node) and not second_z == 1:
+                max_fanouts_second_node = 2
+            else:
+                max_fanouts_second_node = 1
+
+            if num_fanouts_second_node >= max_fanouts_second_node:
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"Gate at ({second_x}, {second_y}, {second_z}) cannot have more than {max_fanouts_second_node} outgoing connections.",
+                    }
+                )
+
             if gate_type == "and":
                 layout.create_and(
                     layout.make_signal(first_node),
@@ -867,7 +907,7 @@ def move_gate():
             jsonify(
                 {
                     "success": True,
-                    "updatedGateType": True is source_gate_type == "fanout",
+                    "updateGateType": source_gate_type == "fanout",
                 }
             ),
             200,

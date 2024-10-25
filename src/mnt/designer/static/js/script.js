@@ -1805,7 +1805,7 @@ $(document).ready(() => {
           selectedNode.data("gateType", `${sourceGateType.toUpperCase()}`);
           selectedNode.data("hasGate", true);
 
-          if (data.updatedGateType) {
+          if (data.updateGateType) {
             selectedNode.data("gateType", "buf");
             selectedNode.data("label", "");
           }
