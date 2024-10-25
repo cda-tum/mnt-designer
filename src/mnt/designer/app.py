@@ -798,13 +798,12 @@ def connect_gates():
             )
 
         if (source_x, source_y, source_z) in existing_fanins:
-            if num_fanins >= max_fanins:
-                return jsonify(
-                    {
-                        "success": False,
-                        "error": f"Gate at ({target_x}, {target_y}, {target_z}) is already connected to ({source_x}, {source_y}, {source_z}.",
-                    }
-                )
+            return jsonify(
+                {
+                    "success": False,
+                    "error": f"Gate at ({target_x}, {target_y}, {target_z}) is already connected to ({source_x}, {source_y}, {source_z}.",
+                }
+            )
         else:
             existing_fanins.append((source_x, source_y, source_z))
 
@@ -859,6 +858,8 @@ def move_gate():
         # Find all gates that use this node as an input signal
         outgoing_tiles = layout.fanouts(source)
 
+        layout.move_node(source_node, target, [])
+
         # Update signals for dependent nodes
         for outgoing_tile in outgoing_tiles:
             # Get the other input signals, if any
@@ -871,8 +872,6 @@ def move_gate():
             layout.move_node(
                 layout.get_node(outgoing_tile), outgoing_tile, incoming_signals
             )
-
-        layout.move_node(source_node, target, [])
 
         if source_gate_type in ("bufc", "bufk"):
             source_z = 0
