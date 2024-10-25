@@ -1778,15 +1778,12 @@ $(document).ready(() => {
           selectedSourceNode.data("label", "");
           selectedSourceNode.data("gateType", "");
           selectedSourceNode.data("hasGate", false);
-          selectedSourceNode.style(
-            "background-color",
-            selectedSourceNode.data("color"),
-          );
+          updateGateLabel(selectedSourceNode);
 
           const inEdges = connectedEdges.filter(
             (edge) => edge.data("target") === selectedSourceNode.id(),
           );
-          // Loop through each outgoing edge to determine where the connection is coming from
+          // Loop through each incoming edge to determine where the connection is coming from
           inEdges.forEach((edge) => {
             const sourceNode = cy.getElementById(edge.data("source"));
             if (sourceNode.data("gateType").toLowerCase() === "fanout") {

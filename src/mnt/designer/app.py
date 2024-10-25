@@ -1,6 +1,7 @@
 import os
 import tempfile
 import uuid
+from xml.sax.handler import property_interning_dict
 
 from flask import Flask, jsonify, render_template, request, send_file, session
 
@@ -610,9 +611,7 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
                         source_z = 0
                     else:
-                        return jsonify(
-                            {"success": False, "error": "Something went wrong."}
-                        )
+                        source_z = 0
             elif source_y < target_y:
                 if layout.has_eastern_outgoing_signal((source_x, source_y, 0)):
                     source_z = 1
@@ -624,9 +623,7 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
                         source_z = 1
                     else:
-                        return jsonify(
-                            {"success": False, "error": "Something went wrong."}
-                        )
+                        source_z = 0
             else:
                 return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -642,9 +639,7 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
                         source_z = 1
                     else:
-                        return jsonify(
-                            {"success": False, "error": "Something went wrong."}
-                        )
+                        source_z = 0
             elif source_y < target_y:
                 if layout.has_eastern_outgoing_signal((source_x, source_y, 0)):
                     source_z = 1
@@ -656,9 +651,7 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((source_x, source_y, 1)):
                         source_z = 0
                     else:
-                        return jsonify(
-                            {"success": False, "error": "Something went wrong."}
-                        )
+                        source_z = 0
             else:
                 return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -674,9 +667,7 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((target_x, target_y, 1)):
                         target_z = 0
                     else:
-                        return jsonify(
-                            {"success": False, "error": "Something went wrong."}
-                        )
+                        target_z = 0
             elif source_y < target_y:
                 if layout.has_eastern_outgoing_signal((target_x, target_y, 0)):
                     target_z = 1
@@ -688,9 +679,7 @@ def connect_gates():
                     elif layout.has_western_incoming_signal((target_x, target_y, 1)):
                         target_z = 0
                     else:
-                        return jsonify(
-                            {"success": False, "error": "Something went wrong."}
-                        )
+                        target_z = 0
             else:
                 return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -706,9 +695,7 @@ def connect_gates():
                     elif layout.has_northern_incoming_signal((target_x, target_y, 1)):
                         target_z = 0
                     else:
-                        return jsonify(
-                            {"success": False, "error": "Something went wrong."}
-                        )
+                        target_z = 0
             elif source_y < target_y:
                 if layout.has_eastern_outgoing_signal((target_x, target_y, 0)):
                     target_z = 0
@@ -720,9 +707,7 @@ def connect_gates():
                     elif layout.has_western_incoming_signal((target_x, target_y, 1)):
                         target_z = 0
                     else:
-                        return jsonify(
-                            {"success": False, "error": "Something went wrong."}
-                        )
+                        target_z = 0
             else:
                 return jsonify({"success": False, "error": "Something went wrong."})
 
@@ -772,10 +757,22 @@ def connect_gates():
                 }
             )
 
-        # Create a connection from source_node to target_node
-        route_path(
-            layout, [(source_x, source_y, source_z), (target_x, target_y, target_z)]
-        )
+        if (source_x, source_y, source_z) in existing_fanins:
+            if num_fanins >= max_fanins:
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"Gate at ({target_x}, {target_y}, {target_z}) is already connected to ({source_x}, {source_y}, {source_z}.",
+                    }
+                )
+        else:
+            existing_fanins.append((source_x, source_y, source_z))
+
+        incoming_signals = []
+        for fanin in existing_fanins:
+            incoming_signals.append(layout.make_signal(layout.get_node(fanin)))
+
+        layout.move_node(target_node, (target_x, target_y, target_z), incoming_signals)
 
         if layout.fanout_size(source_node) == 2:
             update = True
@@ -838,7 +835,7 @@ def move_gate():
         layout.move_node(source_node, target, [])
 
         if source_gate_type in ("bufc", "bufk"):
-            source_z = 1
+            source_z = 0
             source = (source_x, source_y, source_z)
             target_z = 1
             target = (target_x, target_y, target_z)
@@ -850,7 +847,6 @@ def move_gate():
 
             # Find all gates that use this node as an input signal
             outgoing_tiles = layout.fanouts(source)
-            incoming_tiles = layout.fanins(source)
             layout.move_node(source_node, target, [])
             layout.clear_tile(source)
 
