@@ -425,22 +425,6 @@
                         class="form-check-input"
                         type="radio"
                         name="gold-mode"
-                        id="gold-mode-high-effort"
-                        value="HIGH_EFFORT"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="gold-mode-high-effort"
-                      >
-                        High Effort
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="gold-mode"
                         id="gold-mode-high-efficiency"
                         value="HIGH_EFFICIENCY"
                       />
@@ -449,6 +433,22 @@
                         for="gold-mode-high-efficiency"
                       >
                         High Efficiency
+                      </label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                              class="form-check-input"
+                              type="radio"
+                              name="gold-mode"
+                              id="gold-mode-high-effort"
+                              value="HIGH_EFFORT"
+                              checked
+                      />
+                      <label
+                              class="form-check-label"
+                              for="gold-mode-high-effort"
+                      >
+                        High Effort
                       </label>
                     </div>
                     <div class="form-check">
@@ -569,46 +569,29 @@
 
                   <!-- Enable Multithreading Options -->
                   <fieldset class="mb-4">
-                    <legend class="form-label">Enable Multithreading</legend>
                     <div class="form-check">
                       <input
-                        class="form-check-input"
-                        type="radio"
-                        name="gold-enable-multithreading"
-                        id="gold-enable-multithreading-single"
-                        value="false"
-                        checked
+                              class="form-check-input"
+                              type="checkbox"
+                              name="gold-enable-multithreading"
+                              id="gold-enable-multithreading"
+                              value="true"
                       />
                       <label
-                        class="form-check-label"
-                        for="gold-enable-multithreading-single"
+                              class="form-check-label"
+                              for="gold-enable-multithreading"
                       >
-                        Single-Threading
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="gold-enable-multithreading"
-                        id="gold-enable-multithreading-multi"
-                        value="true"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="gold-enable-multithreading-multi"
-                      >
-                        Multi-Threading
+                        Enable Multithreading
                       </label>
                     </div>
                     <small
-                      id="gold-multithreading-help"
-                      class="form-text text-muted"
+                            id="gold-multithreading-help"
+                            class="form-text text-muted"
                     >
-                      Enable multi-threading to improve performance on
-                      multi-core processors.
+                      Enable multi-threading to improve performance on multi-core processors.
                     </small>
                   </fieldset>
+
                 </form>
               </div>
               <div class="modal-footer">
