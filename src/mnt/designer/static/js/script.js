@@ -1839,7 +1839,7 @@ $(document).ready(() => {
       data: JSON.stringify({}),
       success: (data) => {
         if (data.success) {
-          displayViolations(data.errors, data.warnings);
+          displayViolations(data.errors, data.warnings, data.report);
         } else {
           updateMessageArea(
             "Failed to check design rules: " + data.error,
@@ -1899,7 +1899,7 @@ $(document).ready(() => {
   }
 
   // Function to display design rule violations
-  function displayViolations(errors, warnings) {
+  function displayViolations(errors, warnings, report) {
     const violationsArea = $("#violations-area");
     const violationsList = $("#violations-list");
 
@@ -1976,6 +1976,8 @@ $(document).ready(() => {
       </li>
     `);
     }
+
+    violationsList.append(`<pre>${report}</pre>`);
 
     // Show the Violations Area
     violationsArea.removeClass("d-none").fadeIn(100, function () {

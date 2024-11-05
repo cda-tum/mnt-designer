@@ -1,7 +1,7 @@
-import os
+import os, io, re
 import tempfile
 import uuid
-from xml.sax.handler import property_interning_dict
+from contextlib import redirect_stdout
 
 from flask import Flask, jsonify, render_template, request, send_file, session
 
@@ -29,6 +29,8 @@ from mnt.pyfiction import (
     write_qca_layout_svg_params,
     hexagonalization,
 )
+
+from fiction.libs.json.docs.mkdocs.scripts.check_structure import warnings
 
 # Determine the absolute path to the directory containing this script
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -576,7 +578,6 @@ def delete_gate():
             if node:
                 # Find all gates that use this node as an input signal
                 outgoing_tiles = layout.fanouts((x, y, 1))
-                layout.move_node(node, (x, y, 1), [])
                 layout.clear_tile((x, y, 1))
 
                 # Update signals for dependent nodes
@@ -596,7 +597,6 @@ def delete_gate():
         if node:
             # Find all gates that use this node as an input signal
             outgoing_tiles = layout.fanouts((x, y))
-            layout.move_node(node, (x, y), [])
             layout.clear_tile((x, y))
 
             # Update signals for dependent nodes
@@ -923,17 +923,41 @@ def check_design_rules():
         if not layout:
             return jsonify({"success": False, "error": "Layout not found."})
 
-            # Call your design rule checking function
-        warnings, errors = check_design_rules_function(layout)
+        warnings, errors, report = check_design_rules_function(layout)
 
-        return jsonify({"success": True, "errors": errors, "warnings": warnings}), 200
+        return jsonify({"success": True, "errors": errors, "warnings": warnings, "report": report}), 200
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+def strip_ansi_codes(text):
+    ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+    return ansi_escape.sub('', text)
+
+def format_output(text):
+    # Split the text based on the [i] marker
+    sections = text.split('[i]')
+
+    # Reconstruct the output with proper line breaks
+    formatted = ''
+    for section in sections:
+        stripped = section.strip()
+        if stripped:
+            formatted += f"[i] {stripped}\n"
+    return formatted
 
 def check_design_rules_function(layout):
-    warnings, errors = gate_level_drvs(layout, print_report=True)
-    return warnings, errors
+    # Create a StringIO object to capture the output
+    captured_output = io.StringIO()
+
+    # Redirect stdout to the StringIO object
+    with redirect_stdout(captured_output):
+        warnings, errors = gate_level_drvs(layout, print_report=True)
+
+    # Retrieve the captured output
+    raw_output = captured_output.getvalue()
+    clean_output = strip_ansi_codes(raw_output)
+    output = format_output(clean_output)
+    return warnings, errors, output
 
 
 @app.route("/check_equivalence", methods=["POST"])
@@ -1348,12 +1372,15 @@ def apply_gold():
             )
 
         layout = graph_oriented_layout_design(network, params)
-        layouts[session_id] = layout  # Update the layout in the session
-        layout_dimensions, gates = get_layout_information(layout)
+        if layout:
+            layouts[session_id] = layout  # Update the layout in the session
+            layout_dimensions, gates = get_layout_information(layout)
 
-        return jsonify(
-            {"success": True, "layoutDimensions": layout_dimensions, "gates": gates}
-        )
+            return jsonify(
+                {"success": True, "layoutDimensions": layout_dimensions, "gates": gates}
+            )
+        else:
+            return jsonify({"success": False, "error": "No layout found with the specified parameters."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -1374,13 +1401,23 @@ def apply_optimization():
             )
 
         warnings, errors = check_design_rules_function(layout)
-        if errors + warnings != 0:
+        if errors != 0:
             return jsonify(
                 {
                     "success": False,
-                    "error": f"Layout has {errors} errors and {warnings} warnings. Fix them first before optimizing.",
+                    "error": f"Layout has {errors} errors. Fix them first before optimizing.",
                 }
             )
+        if warnings != 0:
+            for x in range(layout.x() + 1):
+                for y in range(layout.y() + 1):
+                    if layout.is_dead(layout.get_node((x, y))) and not layout.is_empty_tile((x, y)):
+                        return jsonify(
+                            {
+                                "success": False,
+                                "error": f"Layout has a dead node: ({x}, {y}). Fix it first before optimizing.",
+                            }
+                        )
 
         data = request.json
         max_gate_relocations = data.get("max_gate_relocations")
