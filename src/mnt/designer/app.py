@@ -1400,7 +1400,7 @@ def apply_optimization():
                 }
             )
 
-        warnings, errors = check_design_rules_function(layout)
+        warnings, errors, report = check_design_rules_function(layout)
         if errors != 0:
             return jsonify(
                 {
