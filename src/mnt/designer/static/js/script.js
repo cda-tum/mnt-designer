@@ -2031,6 +2031,20 @@ $(document).ready(() => {
     }, 3000); // Adjust this delay based on the expected download time
   });
 
+  // Export DOT Layout
+  $("#export-dot-layout-button").on("click", function () {
+    // Show a loading spinner or disable the button during the download
+    $("#export-dot-layout-button").prop("disabled", true);
+
+    // Trigger the download
+    window.location.href = "/export_dot_layout";
+
+    // Re-enable the button after a delay (or based on another event like download completion)
+    setTimeout(function () {
+      $("#export-dot-layout-button").prop("disabled", false);
+    }, 3000); // Adjust this delay based on the expected download time
+  });
+
   // Export QCA Layout
   $("#export-qca-layout-button").on("click", function () {
     // Show a loading spinner or disable the button during the download

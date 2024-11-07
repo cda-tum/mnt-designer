@@ -11,6 +11,7 @@ from mnt.pyfiction import (
     read_cartesian_fgl_layout,
     route_path,
     write_fgl_layout,
+    write_dot_layout,
     read_technology_network,
     orthogonal,
     graph_oriented_layout_design,
@@ -1029,6 +1030,35 @@ def export_layout():
             file_path,
             as_attachment=True,
             mimetype="application/fgl",
+            download_name=file_path,
+        )
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+    finally:
+        # Clean up the file if it exists
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+
+@app.route("/export_dot_layout", methods=["GET"])
+def export_dot_layout():
+    try:
+        session_id = session.get("session_id")
+        layout = layouts.get(session_id)
+
+        if not layout:
+            return jsonify({"success": False, "error": "Layout not found."})
+
+        # Serialize the layout to dot file
+        file_path = f"layout.dot"
+        write_dot_layout(layout, file_path)
+
+        # Send the dot file as an attachment
+        return send_file(
+            file_path,
+            as_attachment=True,
+            mimetype="application/dot",
             download_name=file_path,
         )
 
