@@ -1020,15 +1020,15 @@ def export_layout():
         if not layout:
             return jsonify({"success": False, "error": "Layout not found."})
 
-        # Serialize the layout to XML file
+        # Serialize the layout to fgl file
         file_path = f"layout.fgl"
         write_fgl_layout(layout, file_path)
 
-        # Send the XML file as an attachment
+        # Send the fgl file as an attachment
         return send_file(
             file_path,
             as_attachment=True,
-            mimetype="application/xml",
+            mimetype="application/fgl",
             download_name=file_path,
         )
 
@@ -1086,7 +1086,7 @@ def export_sidb_layout():
         return send_file(
             file_path,
             as_attachment=True,
-            mimetype="application/xml",
+            mimetype="application/sqd",
             download_name=file_path,
         )
 
@@ -1106,7 +1106,7 @@ def import_layout():
         if not file:
             return jsonify({"success": False, "error": "No file provided."})
 
-        # Create a temporary file to save the uploaded XML file
+        # Create a temporary file to save the uploaded fgl file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".fgl") as temp_file:
             file.save(temp_file.name)  # Save the uploaded file to the temporary file
 
