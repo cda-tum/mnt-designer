@@ -7,6 +7,7 @@ from flask import Flask, jsonify, render_template, request, send_file, session
 
 from mnt.pyfiction import (
     cartesian_gate_layout,
+    cartesian_obstruction_layout,
     gate_level_drvs,
     read_cartesian_fgl_layout,
     route_path,
@@ -29,9 +30,9 @@ from mnt.pyfiction import (
     write_sqd_layout,
     write_qca_layout_svg_params,
     hexagonalization,
+    a_star, a_star_params,
 )
 
-from fiction.libs.json.docs.mkdocs.scripts.check_structure import warnings
 
 # Determine the absolute path to the directory containing this script
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -74,7 +75,7 @@ def create_layout():
 
         if not layout:
             # Create a new layout if one doesn't exist
-            layout = cartesian_gate_layout((0, 0, 0), "2DDWave", "Layout")
+            layout = cartesian_obstruction_layout(cartesian_gate_layout((0, 0, 0), "2DDWave", "Layout"))
             layouts[session_id] = layout
 
         # Resize the existing layout
@@ -91,7 +92,7 @@ def reset_layout():
         x = int(data.get("x")) - 1
         y = int(data.get("y")) - 1
         z = 1  # Default Z value
-        layout = cartesian_gate_layout((x, y, z), "2DDWave", "Layout")
+        layout = cartesian_obstruction_layout(cartesian_gate_layout((x, y, z), "2DDWave", "Layout"))
 
         session_id = session["session_id"]
         layouts[session_id] = layout
@@ -537,6 +538,7 @@ def place_gate():
             elif gate_type in ["bufc", "bufk"]:
                 layout.create_buf(layout.make_signal(first_node), (x, y, 0))
                 layout.create_buf(layout.make_signal(second_node), (x, y, 1))
+                layout.obstruct_coordinate((x, y, 1))
             if layout.fanout_size(first_node) == 2:
                 update_first = True
             if layout.fanout_size(second_node) == 2:
@@ -545,6 +547,8 @@ def place_gate():
             return jsonify(
                 {"success": False, "error": f"Unsupported gate type: {gate_type}"}
             )
+
+        layout.obstruct_coordinate((x, y, 0))
 
         return (
             jsonify(
@@ -580,6 +584,7 @@ def delete_gate():
                 # Find all gates that use this node as an input signal
                 outgoing_tiles = layout.fanouts((x, y, 1))
                 layout.clear_tile((x, y, 1))
+                layout.clear_obstructed_coordinate((x, y, 1))
 
                 # Update signals for dependent nodes
                 for outgoing_tile in outgoing_tiles:
@@ -599,8 +604,9 @@ def delete_gate():
             # Find all gates that use this node as an input signal
             outgoing_tiles = layout.fanouts((x, y))
             layout.clear_tile((x, y))
+            layout.clear_obstructed_coordinate((x, y))
 
-            # Update signals for dependent nodes
+        # Update signals for dependent nodes
             for outgoing_tile in outgoing_tiles:
                 # Get the other input signals, if any
                 incoming_tiles = layout.fanins(outgoing_tile)
@@ -639,8 +645,11 @@ def connect_gates():
         target_y = int(data["target_y"])
         target_z = 0
         target_gate_type = data["target_gate_type"]
+        find_path = data["find_path"]
 
         if source_gate_type == "bufc":
+            if find_path:
+                return jsonify({"success": False, "error": "Source gate is a crossing and the outgoing direction cannot be specified, create a connected buffer first."})
             if source_x < target_x:
                 if layout.has_southern_outgoing_signal((source_x, source_y, 0)):
                     source_z = 1
@@ -669,6 +678,8 @@ def connect_gates():
                 return jsonify({"success": False, "error": "Something went wrong."})
 
         if source_gate_type == "bufk":
+            if find_path:
+                return jsonify({"success": False, "error": "Source gate is a crossing and the outgoing direction cannot be specified, create a connected buffer first."})
             if source_x < target_x:
                 if layout.has_southern_outgoing_signal((source_x, source_y, 0)):
                     source_z = 1
@@ -697,6 +708,8 @@ def connect_gates():
                 return jsonify({"success": False, "error": "Something went wrong."})
 
         if target_gate_type == "bufc":
+            if find_path:
+                return jsonify({"success": False, "error": "Target gate is a crossing and the incoming direction cannot be specified, create a connected buffer first."})
             if source_x < target_x:
                 if layout.has_southern_outgoing_signal((target_x, target_y, 0)):
                     target_z = 1
@@ -725,6 +738,8 @@ def connect_gates():
                 return jsonify({"success": False, "error": "Something went wrong."})
 
         if target_gate_type == "bufk":
+            if find_path:
+                return jsonify({"success": False, "error": "Target gate is a crossing and the incoming direction cannot be specified, create a connected buffer first."})
             if source_x < target_x:
                 if layout.has_southern_outgoing_signal((target_x, target_y, 0)):
                     target_z = 0
@@ -806,24 +821,41 @@ def connect_gates():
                 }
             )
         else:
-            existing_fanins.append((source_x, source_y, source_z))
+            if not find_path:
+                existing_fanins.append((source_x, source_y, source_z))
 
         incoming_signals = []
         for fanin in existing_fanins:
             incoming_signals.append(layout.make_signal(layout.get_node(fanin)))
 
-        layout.move_node(target_node, (target_x, target_y, target_z), incoming_signals)
+        if find_path:
+            path = a_star(layout, (source_x, source_y, source_z), (target_x, target_y, target_z))
+
+            if not path:
+                return jsonify({"success": False, "error": "No (crossing-free) path found between the selected gates."})
+        else:
+            path = [(source_x, source_y, source_z), (target_x, target_y, target_z)]
+
+        if find_path:
+            route_path(layout, path)
+        else:
+            layout.move_node(target_node, (target_x, target_y, target_z), incoming_signals)
 
         if layout.fanout_size(source_node) == 2:
             update = True
         else:
             update = False
 
+        if find_path:
+            for coord in path:
+                layout.obstruct_coordinate(coord)
+
         return (
             jsonify(
                 {
                     "success": True,
                     "updateBufToFanout": update,
+                    "path": [(coord.x, coord.y) for coord in path] if data["find_path"] else [(source_x, source_y), (target_x, target_y)]
                 }
             ),
             200,
@@ -860,6 +892,8 @@ def move_gate():
         outgoing_tiles = layout.fanouts(source)
 
         layout.move_node(source_node, target, [])
+        layout.clear_obstructed_coordinate(source)
+        layout.obstruct_coordinate(target)
 
         # Update signals for dependent nodes
         for outgoing_tile in outgoing_tiles:
@@ -889,6 +923,8 @@ def move_gate():
             outgoing_tiles = layout.fanouts(source)
             layout.move_node(source_node, target, [])
             layout.clear_tile(source)
+            layout.clear_obstructed_coordinate(source)
+            layout.obstruct_coordinate(target)
 
             # Update signals for dependent nodes
             for outgoing_tile in outgoing_tiles:
@@ -1149,7 +1185,7 @@ def import_layout():
 
         # Override the current layout with the imported layout
         session_id = session["session_id"]
-        layouts[session_id] = layout
+        layouts[session_id] = cartesian_obstruction_layout(layout)
 
         return jsonify({"success": True})
 
@@ -1321,7 +1357,7 @@ def apply_orthogonal():
         except Exception as e:
             return jsonify({"success": False, "error": str(e)})
 
-        layouts[session_id] = layout  # Update the layout in the session
+        layouts[session_id] = cartesian_obstruction_layout(layout)  # Update the layout in the session
 
         layout_dimensions, gates = get_layout_information(layout)
 
@@ -1403,7 +1439,7 @@ def apply_gold():
 
         layout = graph_oriented_layout_design(network, params)
         if layout:
-            layouts[session_id] = layout  # Update the layout in the session
+            layouts[session_id] = cartesian_obstruction_layout(layout)  # Update the layout in the session
             layout_dimensions, gates = get_layout_information(layout)
 
             return jsonify(

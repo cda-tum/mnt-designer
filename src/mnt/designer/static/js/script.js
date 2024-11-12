@@ -370,7 +370,7 @@ $(document).ready(() => {
         if (data.success) {
           // Update the layout with the new data after the Gold algorithm is applied
           updateLayout(data.layoutDimensions, data.gates);
-          updateMessageArea("Gold algorithm applied successfully.", "success");
+          updateMessageArea("gold algorithm applied successfully.", "success");
           $("#goldModal").modal("hide"); // Close the modal
         } else {
           updateMessageArea(
@@ -1598,6 +1598,7 @@ $(document).ready(() => {
 
   // Connect two existing gates
   function handleConnectGates(node) {
+    let find_path = false;
     if (!selectedSourceNode) {
       if (!node.data("hasGate")) {
         updateMessageArea("Please select a gate as the source.", "danger");
@@ -1616,32 +1617,18 @@ $(document).ready(() => {
         return;
       }
       if (!areNodesAdjacentCardinal(selectedSourceNode, node)) {
-        updateMessageArea(
-          "Gates must be adjacent (left, right, top, bottom) to connect.",
-          "danger",
-        );
-        selectedSourceNode.removeClass("highlighted");
-        selectedSourceNode = null;
-        return;
+        find_path = true;
       }
-      if (!isValidTileTransition(selectedSourceNode, node)) {
-        updateMessageArea(
-          "Invalid tile number sequence. Only transitions 1→2, 2→3, 3→4, and 4→1 are allowed.",
-          "danger",
-        );
-        selectedSourceNode.removeClass("highlighted");
-        selectedSourceNode = null;
-        return;
-      }
+
       selectedNode = node;
       selectedNode.addClass("highlighted");
 
       // Create connection
-      connectGates();
+      connectGates(find_path);
     }
   }
 
-  function connectGates() {
+  function connectGates(find_path) {
     const sourceX = selectedSourceNode.data("x");
     const sourceY = selectedSourceNode.data("y");
     const targetX = selectedNode.data("x");
@@ -1689,17 +1676,30 @@ $(document).ready(() => {
         target_x: targetX,
         target_y: targetY,
         target_gate_type: targetGateType,
+        find_path: find_path
       }),
       success: (data) => {
         if (data.success) {
-          cy.add({
-            group: "edges",
-            data: {
-              id: `edge-${selectedSourceNode.id()}-${selectedNode.id()}`,
-              source: selectedSourceNode.id(),
-              target: selectedNode.id(),
-            },
-          });
+          const path = data.path;
+          for (let i = 0; i < path.length - 1; i++) {
+            const sourceId = `node-${path[i][0]}-${path[i][1]}`;
+            const targetId = `node-${path[i + 1][0]}-${path[i + 1][1]}`;
+            cy.add({
+              group: "edges",
+              data: {
+                id: `edge-${sourceId}-${targetId}`,
+                source: sourceId,
+                target: targetId,
+              },
+            });
+            if (0 < i) {
+              let sourceNode = cy.getElementById(sourceId)
+              sourceNode.data("gateType", "BUF");
+              sourceNode.data("label", "BUF");
+              sourceNode.data("hasGate", true);
+              updateGateLabel(sourceNode);
+            }
+          }
           if (data.updateBufToFanout) {
             selectedSourceNode.data("gateType", "Fanout");
           }
