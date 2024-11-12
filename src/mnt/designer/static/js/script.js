@@ -389,6 +389,99 @@ $(document).ready(() => {
     });
   });
 
+  // Exact Algorithm Apply Button Click Event
+  $("#apply-exact").on("click", function () {
+    // Disable the apply button to prevent multiple clicks
+    $("#apply-exact").prop("disabled", true);
+    updateMessageArea("Applying exact algorithm...", "info");
+
+    if (!valid_verilog) {
+      $("#apply-exact").prop("disabled", false);
+      updateMessageArea("Verilog not valid", "danger");
+      return;
+    }
+
+    // Collect the parameter values from the modal form
+    // Upper Bound X
+    const upper_bound_x = parseInt($("#exact-upper-bound-x").val(), 10) || 1000;
+
+    // Upper Bound Y
+    const upper_bound_y = parseInt($("#exact-upper-bound-y").val(), 10) || 1000;
+
+    // Fixed Size
+    const fixed_size = $("input[name='exact-fixed-size']:checked").val() === "true";
+
+    // Number of Threads
+    const num_threads = parseInt($("#exact-num-threads").val(), 10) || 1;
+
+    // Crossings
+    const crossings = $("input[name='exact-crossings']:checked").val() === "true";
+
+    // Border IO
+    const border_io = $("input[name='exact-border-io']:checked").val() === "true";
+
+    // Straight Inverters
+    const straight_inverters =
+        $("input[name='exact-straight-inverters']:checked").val() === "true";
+
+    // Desynchronize
+    const desynchronize = $("input[name='exact-desynchronize']:checked").val() === "true";
+
+    // Minimize Wires
+    const minimize_wires = $("input[name='exact-minimize-wires']:checked").val() === "true";
+
+    // Minimize Crossings
+    const minimize_crossings =
+        $("input[name='exact-minimize-crossings']:checked").val() === "true";
+
+    // Timeout
+    const timeout = parseInt($("#exact-timeout").val(), 10) || 4294967;
+
+    // Create a data object with parameters to be sent
+    const requestData = {
+      upper_bound_x: upper_bound_x,
+      upper_bound_y: upper_bound_y,
+      fixed_size: fixed_size,
+      num_threads: num_threads,
+      crossings: crossings,
+      border_io: border_io,
+      straight_inverters: straight_inverters,
+      desynchronize: desynchronize,
+      minimize_wires: minimize_wires,
+      minimize_crossings: minimize_crossings,
+      timeout: timeout,
+    };
+
+    // Send the parameters with the AJAX request
+    $.ajax({
+      url: "/apply_exact", // Backend route for the exact algorithm
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify(requestData), // Send the parameters as JSON
+      success: function (data) {
+        $("#apply-exact").prop("disabled", false);
+        if (data.success) {
+          // Update the layout with the new data after the exact algorithm is applied
+          updateLayout(data.layoutDimensions, data.gates);
+          updateMessageArea("Exact algorithm applied successfully.", "success");
+          $("#exactModal").modal("hide"); // Close the modal
+        } else {
+          updateMessageArea(
+              "Failed to create layout using exact algorithm: " + data.error,
+              "danger"
+          );
+        }
+      },
+      error: function (jqXHR, textStatus, errorThrown) {
+        $("#apply-exact").prop("disabled", false);
+        updateMessageArea(
+            "Error applying exact algorithm: " + errorThrown,
+            "danger"
+        );
+      },
+    });
+  });
+
   function toggleCustomRelocations() {
     const selectedValue = $("input[name='max-gate-relocations']:checked").val();
     if (selectedValue === "custom") {

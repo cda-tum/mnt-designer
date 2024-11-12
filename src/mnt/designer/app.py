@@ -1,4 +1,4 @@
-import os, io, re
+import os, io, re, sys
 import tempfile
 import uuid
 from contextlib import redirect_stdout
@@ -30,8 +30,13 @@ from mnt.pyfiction import (
     write_sqd_layout,
     write_qca_layout_svg_params,
     hexagonalization,
-    a_star, a_star_params,
+    a_star
 )
+
+try:
+    from mnt.pyfiction import (exact_params, exact_cartesian)
+finally:
+    pass
 
 
 # Determine the absolute path to the directory containing this script
@@ -1440,6 +1445,72 @@ def apply_gold():
         layout = graph_oriented_layout_design(network, params)
         if layout:
             layouts[session_id] = cartesian_obstruction_layout(layout)  # Update the layout in the session
+            layout_dimensions, gates = get_layout_information(layout)
+
+            return jsonify(
+                {"success": True, "layoutDimensions": layout_dimensions, "gates": gates}
+            )
+        else:
+            return jsonify({"success": False, "error": "No layout found with the specified parameters."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route("/apply_exact", methods=["POST"])
+def apply_exact():
+    try:
+        session_id = session["session_id"]
+        network = networks.get(session_id)
+        if not network:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Network not found. Please save or import Verilog code first.",
+                }
+            )
+
+        if network.size() < 3:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Network is empty.",
+                }
+            )
+
+        if network.size() > 30:
+            return jsonify(
+                {"success": False, "error": "Network size exceeds 30 nodes."}
+            )
+
+        for po in network.pos():
+            for fanin in network.fanins(po):
+                if fanin in (0, 1):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": f"Network has an unconnected PO: {network.get_output_name(network.po_index(po))}.",
+                        }
+                    )
+
+        # Parameters
+        data = request.json
+        params = exact_params()
+        params.scheme = "2DDWave"
+        params.upper_bound_x = int(data.get("upper_bound_x", sys.maxsize))
+        params.upper_bound_y = int(data.get("upper_bound_y", sys.maxsize))
+        params.fixed_size = bool(data.get("fixed_size", False))
+        params.num_threads = int(data.get("num_threads", 1))
+        params.crossings = bool(data.get("crossings", True))
+        params.border_io = bool(data.get("border_io", True))
+        params.straight_inverters = bool(data.get("straight_inverters", False))
+        params.desynchronize = bool(data.get("desynchronize", True))
+        params.minimize_wires = bool(data.get("minimize_wires", False))
+        params.minimize_crossings = bool(data.get("minimize_crossings", False))
+        params.timeout = int(data.get("timeout", 4294967))
+        # Now run the exact algorithm
+        layout = exact_cartesian(network, params)
+        if layout:
+            layouts[session_id] = cartesian_obstruction_layout(layout)
             layout_dimensions, gates = get_layout_information(layout)
 
             return jsonify(
