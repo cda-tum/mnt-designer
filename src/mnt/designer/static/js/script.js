@@ -292,6 +292,49 @@ $(document).ready(() => {
     });
   });
 
+  // Ortho Button Click Handler
+  $("#iosdn-button").on("click", function () {
+    // Disable the button to prevent multiple clicks
+    $("#iosdn-button").prop("disabled", true);
+    updateMessageArea("Applying input-ordering SDN...", "info");
+
+    if (!valid_verilog) {
+      $("#iosdn-button").prop("disabled", false);
+      updateMessageArea("Verilog not valid", "danger");
+      return;
+    }
+
+    $.ajax({
+      url: "/apply_iosdn",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({}),
+      success: (data) => {
+        $("#iosdn-button").prop("disabled", false); // Re-enable button
+        if (data.success) {
+          // Update the layout with the new data
+          updateLayout(data.layoutDimensions, data.gates);
+          updateMessageArea(
+              "Created layout with input-ordering SDN successfully.",
+              "success",
+          );
+        } else {
+          updateMessageArea(
+              "Failed to create layout using input-ordering SDN: " + data.error,
+              "danger",
+          );
+        }
+      },
+      error: (jqXHR, textStatus, errorThrown) => {
+        $("#iosdn-button").prop("disabled", false); // Re-enable button
+        updateMessageArea(
+            "Error communicating with the server: " + errorThrown,
+            "danger",
+        );
+      },
+    });
+  });
+
   // Gold Button Click Event (opens modal automatically due to data-bs-toggle)
   $("#apply-gold").on("click", function () {
     // Disable the apply button to prevent multiple clicks

@@ -1373,6 +1373,63 @@ def apply_orthogonal():
         return jsonify({"success": False, "error": str(e)})
 
 
+@app.route("/apply_iosdn", methods=["POST"])
+def apply_iosdn():
+    try:
+        session_id = session["session_id"]
+        network = networks.get(session_id)
+        if not network:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Network not found. Please save or import Verilog code first.",
+                }
+            )
+
+        if network.size() < 3:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Network size is less than 3, indicating that not gates are present.",
+                }
+            )
+
+        if network.size() > 500:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Network size exceeds 500 nodes and the resulting layout can not be rendered.",
+                }
+            )
+
+        for po in network.pos():
+            for fanin in network.fanins(po):
+                if fanin in (0, 1):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": f"Network has an unconnected PO: {network.get_output_name(network.po_index(po))}.",
+                        }
+                    )
+
+        try:
+            # Apply the iosdn function
+            # layout =
+            return jsonify({"success": False, "error": "Input-ordering SDN not available in pyfiction yet."})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)})
+
+        layouts[session_id] = cartesian_obstruction_layout(layout)  # Update the layout in the session
+
+        layout_dimensions, gates = get_layout_information(layout)
+
+        return jsonify(
+            {"success": True, "layoutDimensions": layout_dimensions, "gates": gates}
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
 @app.route("/apply_gold", methods=["POST"])
 def apply_gold():
     try:
