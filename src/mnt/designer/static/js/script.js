@@ -315,21 +315,21 @@ $(document).ready(() => {
           // Update the layout with the new data
           updateLayout(data.layoutDimensions, data.gates);
           updateMessageArea(
-              "Created layout with input-ordering SDN successfully.",
-              "success",
+            "Created layout with input-ordering SDN successfully.",
+            "success",
           );
         } else {
           updateMessageArea(
-              "Failed to create layout using input-ordering SDN: " + data.error,
-              "danger",
+            "Failed to create layout using input-ordering SDN: " + data.error,
+            "danger",
           );
         }
       },
       error: (jqXHR, textStatus, errorThrown) => {
         $("#iosdn-button").prop("disabled", false); // Re-enable button
         updateMessageArea(
-            "Error communicating with the server: " + errorThrown,
-            "danger",
+          "Error communicating with the server: " + errorThrown,
+          "danger",
         );
       },
     });
@@ -452,30 +452,35 @@ $(document).ready(() => {
     const upper_bound_y = parseInt($("#exact-upper-bound-y").val(), 10) || 1000;
 
     // Fixed Size
-    const fixed_size = $("input[name='exact-fixed-size']:checked").val() === "true";
+    const fixed_size =
+      $("input[name='exact-fixed-size']:checked").val() === "true";
 
     // Number of Threads
     const num_threads = parseInt($("#exact-num-threads").val(), 10) || 1;
 
     // Crossings
-    const crossings = $("input[name='exact-crossings']:checked").val() === "true";
+    const crossings =
+      $("input[name='exact-crossings']:checked").val() === "true";
 
     // Border IO
-    const border_io = $("input[name='exact-border-io']:checked").val() === "true";
+    const border_io =
+      $("input[name='exact-border-io']:checked").val() === "true";
 
     // Straight Inverters
     const straight_inverters =
-        $("input[name='exact-straight-inverters']:checked").val() === "true";
+      $("input[name='exact-straight-inverters']:checked").val() === "true";
 
     // Desynchronize
-    const desynchronize = $("input[name='exact-desynchronize']:checked").val() === "true";
+    const desynchronize =
+      $("input[name='exact-desynchronize']:checked").val() === "true";
 
     // Minimize Wires
-    const minimize_wires = $("input[name='exact-minimize-wires']:checked").val() === "true";
+    const minimize_wires =
+      $("input[name='exact-minimize-wires']:checked").val() === "true";
 
     // Minimize Crossings
     const minimize_crossings =
-        $("input[name='exact-minimize-crossings']:checked").val() === "true";
+      $("input[name='exact-minimize-crossings']:checked").val() === "true";
 
     // Timeout
     const timeout = parseInt($("#exact-timeout").val(), 10) || 4294967;
@@ -510,16 +515,16 @@ $(document).ready(() => {
           $("#exactModal").modal("hide"); // Close the modal
         } else {
           updateMessageArea(
-              "Failed to create layout using exact algorithm: " + data.error,
-              "danger"
+            "Failed to create layout using exact algorithm: " + data.error,
+            "danger",
           );
         }
       },
       error: function (jqXHR, textStatus, errorThrown) {
         $("#apply-exact").prop("disabled", false);
         updateMessageArea(
-            "Error applying exact algorithm: " + errorThrown,
-            "danger"
+          "Error applying exact algorithm: " + errorThrown,
+          "danger",
         );
       },
     });
@@ -1812,7 +1817,7 @@ $(document).ready(() => {
         target_x: targetX,
         target_y: targetY,
         target_gate_type: targetGateType,
-        find_path: find_path
+        find_path: find_path,
       }),
       success: (data) => {
         if (data.success) {
@@ -1829,7 +1834,7 @@ $(document).ready(() => {
               },
             });
             if (0 < i) {
-              let sourceNode = cy.getElementById(sourceId)
+              let sourceNode = cy.getElementById(sourceId);
               sourceNode.data("gateType", "BUF");
               sourceNode.data("label", "BUF");
               sourceNode.data("hasGate", true);

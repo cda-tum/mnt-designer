@@ -103,9 +103,9 @@
           <i class="fas fa-file-export"></i> Export Layout
         </button>
         <button
-                type="button"
-                id="export-dot-layout-button"
-                class="btn btn-outline-primary"
+          type="button"
+          id="export-dot-layout-button"
+          class="btn btn-outline-primary"
         >
           <i class="fas fa-file-export"></i> Export DOT Layout
         </button>
@@ -361,21 +361,21 @@
         </button>
         <!-- Exact Algorithm Button -->
         <button
-                type="button"
-                id="exact-button"
-                class="btn btn-outline-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#exactModal"
+          type="button"
+          id="exact-button"
+          class="btn btn-outline-primary"
+          data-bs-toggle="modal"
+          data-bs-target="#exactModal"
         >
           <i class="fas fa-calculator"></i> exact
         </button>
         <!-- Exact Algorithm Parameter Modal -->
         <div
-                class="modal fade"
-                id="exactModal"
-                tabindex="-1"
-                aria-labelledby="exactModalLabel"
-                aria-hidden="true"
+          class="modal fade"
+          id="exactModal"
+          tabindex="-1"
+          aria-labelledby="exactModalLabel"
+          aria-hidden="true"
         >
           <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -384,10 +384,10 @@
                   Specify Exact Algorithm Parameters
                 </h5>
                 <button
-                        type="button"
-                        class="btn-close"
-                        data-bs-dismiss="modal"
-                        aria-label="Close"
+                  type="button"
+                  class="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"
                 ></button>
               </div>
               <div class="modal-body">
@@ -398,14 +398,17 @@
                       Upper Bound X
                     </label>
                     <input
-                            type="number"
-                            class="form-control"
-                            id="exact-upper-bound-x"
-                            placeholder="Enter upper bound X dimension"
-                            min="1"
-                            aria-describedby="exact-upper-bound-x-help"
+                      type="number"
+                      class="form-control"
+                      id="exact-upper-bound-x"
+                      placeholder="Enter upper bound X dimension"
+                      min="1"
+                      aria-describedby="exact-upper-bound-x-help"
                     />
-                    <small id="exact-upper-bound-x-help" class="form-text text-muted">
+                    <small
+                      id="exact-upper-bound-x-help"
+                      class="form-text text-muted"
+                    >
                       Number of tiles to use as an upper bound in x direction.
                     </small>
                   </div>
@@ -416,14 +419,17 @@
                       Upper Bound Y
                     </label>
                     <input
-                            type="number"
-                            class="form-control"
-                            id="exact-upper-bound-y"
-                            placeholder="Enter upper bound Y dimension"
-                            min="1"
-                            aria-describedby="exact-upper-bound-y-help"
+                      type="number"
+                      class="form-control"
+                      id="exact-upper-bound-y"
+                      placeholder="Enter upper bound Y dimension"
+                      min="1"
+                      aria-describedby="exact-upper-bound-y-help"
                     />
-                    <small id="exact-upper-bound-y-help" class="form-text text-muted">
+                    <small
+                      id="exact-upper-bound-y-help"
+                      class="form-text text-muted"
+                    >
                       Number of tiles to use as an upper bound in y direction.
                     </small>
                   </div>
@@ -433,30 +439,39 @@
                     <legend class="form-label">Fixed Size</legend>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-fixed-size"
-                              id="exact-fixed-size-false"
-                              value="false"
-                              checked
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-fixed-size"
+                        id="exact-fixed-size-false"
+                        value="false"
+                        checked
                       />
-                      <label class="form-check-label" for="exact-fixed-size-false">
+                      <label
+                        class="form-check-label"
+                        for="exact-fixed-size-false"
+                      >
                         No
                       </label>
                     </div>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-fixed-size"
-                              id="exact-fixed-size-true"
-                              value="true"
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-fixed-size"
+                        id="exact-fixed-size-true"
+                        value="true"
                       />
-                      <label class="form-check-label" for="exact-fixed-size-true">
+                      <label
+                        class="form-check-label"
+                        for="exact-fixed-size-true"
+                      >
                         Yes
                       </label>
                     </div>
-                    <small id="exact-fixed-size-help" class="form-text text-muted">
+                    <small
+                      id="exact-fixed-size-help"
+                      class="form-text text-muted"
+                    >
                       Investigate only aspect ratios matching the upper bounds.
                     </small>
                   </fieldset>
@@ -467,15 +482,18 @@
                       Number of Threads
                     </label>
                     <input
-                            type="number"
-                            class="form-control"
-                            id="exact-num-threads"
-                            placeholder="Enter number of threads"
-                            min="1"
-                            value="1"
-                            aria-describedby="exact-num-threads-help"
+                      type="number"
+                      class="form-control"
+                      id="exact-num-threads"
+                      placeholder="Enter number of threads"
+                      min="1"
+                      value="1"
+                      aria-describedby="exact-num-threads-help"
                     />
-                    <small id="exact-num-threads-help" class="form-text text-muted">
+                    <small
+                      id="exact-num-threads-help"
+                      class="form-text text-muted"
+                    >
                       Number of threads to use for exploring aspect ratios.
                     </small>
                   </div>
@@ -485,30 +503,39 @@
                     <legend class="form-label">Crossings Allowed</legend>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-crossings"
-                              id="exact-crossings-false"
-                              value="false"
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-crossings"
+                        id="exact-crossings-false"
+                        value="false"
                       />
-                      <label class="form-check-label" for="exact-crossings-false">
+                      <label
+                        class="form-check-label"
+                        for="exact-crossings-false"
+                      >
                         No
                       </label>
                     </div>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-crossings"
-                              id="exact-crossings-true"
-                              value="true"
-                              checked
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-crossings"
+                        id="exact-crossings-true"
+                        value="true"
+                        checked
                       />
-                      <label class="form-check-label" for="exact-crossings-true">
+                      <label
+                        class="form-check-label"
+                        for="exact-crossings-true"
+                      >
                         Yes
                       </label>
                     </div>
-                    <small id="exact-crossings-help" class="form-text text-muted">
+                    <small
+                      id="exact-crossings-help"
+                      class="form-text text-muted"
+                    >
                       Allow crossings in the layout.
                     </small>
                   </fieldset>
@@ -518,30 +545,39 @@
                     <legend class="form-label">Border IO</legend>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-border-io"
-                              id="exact-border-io-false"
-                              value="false"
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-border-io"
+                        id="exact-border-io-false"
+                        value="false"
                       />
-                      <label class="form-check-label" for="exact-border-io-false">
+                      <label
+                        class="form-check-label"
+                        for="exact-border-io-false"
+                      >
                         No
                       </label>
                     </div>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-border-io"
-                              id="exact-border-io-true"
-                              value="true"
-                              checked
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-border-io"
+                        id="exact-border-io-true"
+                        value="true"
+                        checked
                       />
-                      <label class="form-check-label" for="exact-border-io-true">
+                      <label
+                        class="form-check-label"
+                        for="exact-border-io-true"
+                      >
                         Yes
                       </label>
                     </div>
-                    <small id="exact-border-io-help" class="form-text text-muted">
+                    <small
+                      id="exact-border-io-help"
+                      class="form-text text-muted"
+                    >
                       Place I/Os at the layout's border.
                     </small>
                   </fieldset>
@@ -551,30 +587,39 @@
                     <legend class="form-label">Straight Inverters</legend>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-straight-inverters"
-                              id="exact-straight-inverters-false"
-                              value="false"
-                              checked
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-straight-inverters"
+                        id="exact-straight-inverters-false"
+                        value="false"
+                        checked
                       />
-                      <label class="form-check-label" for="exact-straight-inverters-false">
+                      <label
+                        class="form-check-label"
+                        for="exact-straight-inverters-false"
+                      >
                         No
                       </label>
                     </div>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-straight-inverters"
-                              id="exact-straight-inverters-true"
-                              value="true"
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-straight-inverters"
+                        id="exact-straight-inverters-true"
+                        value="true"
                       />
-                      <label class="form-check-label" for="exact-straight-inverters-true">
+                      <label
+                        class="form-check-label"
+                        for="exact-straight-inverters-true"
+                      >
                         Yes
                       </label>
                     </div>
-                    <small id="exact-straight-inverters-help" class="form-text text-muted">
+                    <small
+                      id="exact-straight-inverters-help"
+                      class="form-text text-muted"
+                    >
                       Use straight inverters over bend ones.
                     </small>
                   </fieldset>
@@ -584,30 +629,39 @@
                     <legend class="form-label">Desynchronize</legend>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-desynchronize"
-                              id="exact-desynchronize-false"
-                              value="false"
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-desynchronize"
+                        id="exact-desynchronize-false"
+                        value="false"
                       />
-                      <label class="form-check-label" for="exact-desynchronize-false">
+                      <label
+                        class="form-check-label"
+                        for="exact-desynchronize-false"
+                      >
                         No
                       </label>
                     </div>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-desynchronize"
-                              id="exact-desynchronize-true"
-                              value="true"
-                              checked
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-desynchronize"
+                        id="exact-desynchronize-true"
+                        value="true"
+                        checked
                       />
-                      <label class="form-check-label" for="exact-desynchronize-true">
+                      <label
+                        class="form-check-label"
+                        for="exact-desynchronize-true"
+                      >
                         Yes
                       </label>
                     </div>
-                    <small id="exact-desynchronize-help" class="form-text text-muted">
+                    <small
+                      id="exact-desynchronize-help"
+                      class="form-text text-muted"
+                    >
                       Allow discrepancies in fan-in path lengths.
                     </small>
                   </fieldset>
@@ -617,30 +671,39 @@
                     <legend class="form-label">Minimize Wires</legend>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-minimize-wires"
-                              id="exact-minimize-wires-false"
-                              value="false"
-                              checked
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-minimize-wires"
+                        id="exact-minimize-wires-false"
+                        value="false"
+                        checked
                       />
-                      <label class="form-check-label" for="exact-minimize-wires-false">
+                      <label
+                        class="form-check-label"
+                        for="exact-minimize-wires-false"
+                      >
                         No
                       </label>
                     </div>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-minimize-wires"
-                              id="exact-minimize-wires-true"
-                              value="true"
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-minimize-wires"
+                        id="exact-minimize-wires-true"
+                        value="true"
                       />
-                      <label class="form-check-label" for="exact-minimize-wires-true">
+                      <label
+                        class="form-check-label"
+                        for="exact-minimize-wires-true"
+                      >
                         Yes
                       </label>
                     </div>
-                    <small id="exact-minimize-wires-help" class="form-text text-muted">
+                    <small
+                      id="exact-minimize-wires-help"
+                      class="form-text text-muted"
+                    >
                       Minimize the number of wires used.
                     </small>
                   </fieldset>
@@ -650,66 +713,72 @@
                     <legend class="form-label">Minimize Crossings</legend>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-minimize-crossings"
-                              id="exact-minimize-crossings-false"
-                              value="false"
-                              checked
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-minimize-crossings"
+                        id="exact-minimize-crossings-false"
+                        value="false"
+                        checked
                       />
-                      <label class="form-check-label" for="exact-minimize-crossings-false">
+                      <label
+                        class="form-check-label"
+                        for="exact-minimize-crossings-false"
+                      >
                         No
                       </label>
                     </div>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="exact-minimize-crossings"
-                              id="exact-minimize-crossings-true"
-                              value="true"
+                        class="form-check-input"
+                        type="radio"
+                        name="exact-minimize-crossings"
+                        id="exact-minimize-crossings-true"
+                        value="true"
                       />
-                      <label class="form-check-label" for="exact-minimize-crossings-true">
+                      <label
+                        class="form-check-label"
+                        for="exact-minimize-crossings-true"
+                      >
                         Yes
                       </label>
                     </div>
-                    <small id="exact-minimize-crossings-help" class="form-text text-muted">
+                    <small
+                      id="exact-minimize-crossings-help"
+                      class="form-text text-muted"
+                    >
                       Minimize the number of crossings used.
                     </small>
                   </fieldset>
 
                   <!-- Timeout -->
                   <div class="mb-4">
-                    <label for="exact-timeout" class="form-label">Timeout (ms)</label>
+                    <label for="exact-timeout" class="form-label"
+                      >Timeout (ms)</label
+                    >
                     <input
-                            type="number"
-                            class="form-control"
-                            id="exact-timeout"
-                            placeholder="Enter timeout in milliseconds"
-                            min="1"
-                            value="4294967"
-                            aria-describedby="exact-timeout-help"
+                      type="number"
+                      class="form-control"
+                      id="exact-timeout"
+                      placeholder="Enter timeout in milliseconds"
+                      min="1"
+                      value="4294967"
+                      aria-describedby="exact-timeout-help"
                     />
                     <small id="exact-timeout-help" class="form-text text-muted">
                       Set a timeout in milliseconds for the solving process.
                     </small>
                   </div>
-
                 </form>
               </div>
               <div class="modal-footer">
                 <button
-                        type="button"
-                        class="btn btn-secondary"
-                        data-bs-dismiss="modal"
+                  type="button"
+                  class="btn btn-secondary"
+                  data-bs-dismiss="modal"
                 >
                   Close
                 </button>
-                <button
-                        type="button"
-                        id="apply-exact"
-                        class="btn btn-primary"
-                >
+                <button type="button" id="apply-exact" class="btn btn-primary">
                   Run exact
                 </button>
               </div>
@@ -805,16 +874,16 @@
                     </div>
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="radio"
-                              name="gold-mode"
-                              id="gold-mode-high-effort"
-                              value="HIGH_EFFORT"
-                              checked
+                        class="form-check-input"
+                        type="radio"
+                        name="gold-mode"
+                        id="gold-mode-high-effort"
+                        value="HIGH_EFFORT"
+                        checked
                       />
                       <label
-                              class="form-check-label"
-                              for="gold-mode-high-effort"
+                        class="form-check-label"
+                        for="gold-mode-high-effort"
                       >
                         High Effort
                       </label>
@@ -939,27 +1008,27 @@
                   <fieldset class="mb-4">
                     <div class="form-check">
                       <input
-                              class="form-check-input"
-                              type="checkbox"
-                              name="gold-enable-multithreading"
-                              id="gold-enable-multithreading"
-                              value="true"
+                        class="form-check-input"
+                        type="checkbox"
+                        name="gold-enable-multithreading"
+                        id="gold-enable-multithreading"
+                        value="true"
                       />
                       <label
-                              class="form-check-label"
-                              for="gold-enable-multithreading"
+                        class="form-check-label"
+                        for="gold-enable-multithreading"
                       >
                         Enable Multithreading
                       </label>
                     </div>
                     <small
-                            id="gold-multithreading-help"
-                            class="form-text text-muted"
+                      id="gold-multithreading-help"
+                      class="form-text text-muted"
                     >
-                      Enable multi-threading to improve performance on multi-core processors.
+                      Enable multi-threading to improve performance on
+                      multi-core processors.
                     </small>
                   </fieldset>
-
                 </form>
               </div>
               <div class="modal-footer">
