@@ -180,7 +180,7 @@ $(document).ready(() => {
     // Place gates and connections based on the new layout data
     gates.forEach((gate) => {
       // Place the gate
-      placeGateLocally(gate.x, gate.y, gate.type);
+      placeGateLocally(gate.x, gate.y, gate.type, gate.name);
 
       // Handle connections (edges)
       gate.connections.forEach((conn) => {
@@ -1678,7 +1678,13 @@ $(document).ready(() => {
 
     // Check if the gate is a PI
     if (gateType === "pi") {
-      updateMessageArea("Cannot delete PI gates.", "danger");
+      updateMessageArea("Cannot delete PI gates (Delete them in the verilog file instead).", "danger");
+      return; // Exit the function to prevent deletion
+    }
+
+    // Check if the gate is a P=
+    if (gateType === "po") {
+      updateMessageArea("Cannot delete PO gates (Delete them in the verilog file instead).", "danger");
       return; // Exit the function to prevent deletion
     }
 
@@ -1915,12 +1921,6 @@ $(document).ready(() => {
           const connectedEdges = selectedSourceNode.connectedEdges();
           cy.remove(connectedEdges);
 
-          // Reset node label and style
-          selectedSourceNode.data("label", "");
-          selectedSourceNode.data("gateType", "");
-          selectedSourceNode.data("hasGate", false);
-          updateGateLabel(selectedSourceNode);
-
           const inEdges = connectedEdges.filter(
             (edge) => edge.data("target") === selectedSourceNode.id(),
           );
@@ -1942,9 +1942,15 @@ $(document).ready(() => {
             updateGateLabel(targetNode);
           });
 
-          selectedNode.data("label", `${sourceGateType.toUpperCase()}`);
+          selectedNode.data("label", `${selectedSourceNode.data("label")}`);
           selectedNode.data("gateType", `${sourceGateType.toUpperCase()}`);
           selectedNode.data("hasGate", true);
+
+          // Reset node label and style
+          selectedSourceNode.data("label", "");
+          selectedSourceNode.data("gateType", "");
+          selectedSourceNode.data("hasGate", false);
+          updateGateLabel(selectedSourceNode);
 
           if (data.updateGateType) {
             selectedNode.data("gateType", "buf");
@@ -2278,7 +2284,7 @@ $(document).ready(() => {
           // Place gates and connections based on the layout data
           data.gates.forEach((gate) => {
             // Place the gate
-            placeGateLocally(gate.x, gate.y, gate.type);
+            placeGateLocally(gate.x, gate.y, gate.type, gate.name);
 
             // Handle connections (edges)
             gate.connections.forEach((conn) => {
@@ -2346,9 +2352,14 @@ $(document).ready(() => {
     });
   }
 
-  function placeGateLocally(x, y, gateType) {
+  function placeGateLocally(x, y, gateType, name) {
     const node = cy.getElementById(`node-${x}-${y}`);
-    node.data("label", `${gateType.toUpperCase()}`);
+    if (gateType === "pi" || gateType === "po") {
+      node.data("label", `${name}`);
+    }
+    else {
+      node.data("label", `${gateType.toUpperCase()}`);
+    }
     node.data("gateType", `${gateType.toUpperCase()}`);
     node.data("hasGate", true);
 

@@ -35,8 +35,20 @@ from mnt.pyfiction import (
 
 try:
     from mnt.pyfiction import exact_params, exact_cartesian
-finally:
-    pass
+except ImportError:
+    # The module doesn't exist
+    exact_params = None
+    exact_cartesian = None
+except AttributeError:
+    # The module exists but one or both functions are missing
+    try:
+        from mnt.pyfiction import exact_params
+    except ImportError:
+        exact_params = None
+    try:
+        from mnt.pyfiction import exact_cartesian
+    except ImportError:
+        exact_cartesian = None
 
 
 # Determine the absolute path to the directory containing this script
@@ -1613,6 +1625,13 @@ def apply_exact():
                         }
                     )
 
+        if not exact_params:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Pyfiction was installed without Z3 enabled.",
+                }
+            )
         # Parameters
         data = request.json
         params = exact_params()
@@ -1713,11 +1732,20 @@ def get_layout_information(layout):
     for x in range(layout.x() + 1):
         for y in range(layout.y() + 1):
             node = layout.get_node((x, y))
+            name = ""
             if node:
                 if layout.is_pi(node):
                     gate_type = "pi"
+                    try:
+                        name = layout.get_name(layout.make_signal(node))
+                    except:
+                        name = ""
                 elif layout.is_po(node):
                     gate_type = "po"
+                    try:
+                        name = layout.get_name(layout.make_signal(node))
+                    except:
+                        name = ""
                 elif layout.is_wire(node):
                     gate_type = "buf"
                     above_gate = layout.above(layout.get_tile(node))
@@ -1755,7 +1783,7 @@ def get_layout_information(layout):
                 else:
                     raise Exception("Unsupported gate type")
 
-                gate_info = {"x": x, "y": y, "type": gate_type, "connections": []}
+                gate_info = {"x": x, "y": y, "type": gate_type, "connections": [], "name": name}
                 # Get fanins (source nodes)
                 fanins = layout.fanins((x, y))
                 for fin in fanins:
