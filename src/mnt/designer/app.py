@@ -3,6 +3,7 @@ import tempfile
 import uuid
 from contextlib import redirect_stdout
 import logging
+import webbrowser
 
 from flask import Flask, jsonify, render_template, request, send_file, session, cli
 
@@ -1832,6 +1833,9 @@ def start_server():
         "To stop it, interrupt the process (e.g., via CTRL+C). \n",
     )
     cli.show_server_banner = lambda *_args: None
+    # Automatically open the default browser
+    url = "http://127.0.0.1:5001"
+    webbrowser.open(url)
     app.run(debug=False, port=5001)
 
 
