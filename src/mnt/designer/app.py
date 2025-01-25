@@ -2,8 +2,9 @@ import os, io, re, sys
 import tempfile
 import uuid
 from contextlib import redirect_stdout
+import logging
 
-from flask import Flask, jsonify, render_template, request, send_file, session
+from flask import Flask, jsonify, render_template, request, send_file, session, cli
 
 from mnt.pyfiction import (
     cartesian_gate_layout,
@@ -1126,7 +1127,9 @@ def export_layout():
             return jsonify({"success": False, "error": "Layout not found."})
 
         # Serialize the layout to fgl file
-        file_path = f"layout.fgl"
+        output_dir = os.path.join(os.getcwd(), "exported_layouts")
+        os.makedirs(output_dir, exist_ok=True)
+        file_path = os.path.join(output_dir, "layout.fgl")
         write_fgl_layout(layout, file_path)
 
         # Send the fgl file as an attachment
@@ -1134,7 +1137,7 @@ def export_layout():
             file_path,
             as_attachment=True,
             mimetype="application/fgl",
-            download_name=file_path,
+            download_name="layout.fgl",
         )
 
     except Exception as e:
@@ -1155,7 +1158,9 @@ def export_dot_layout():
             return jsonify({"success": False, "error": "Layout not found."})
 
         # Serialize the layout to dot file
-        file_path = f"layout.dot"
+        output_dir = os.path.join(os.getcwd(), "exported_layouts")
+        os.makedirs(output_dir, exist_ok=True)
+        file_path = os.path.join(output_dir, "layout.dot")
         write_dot_layout(layout, file_path)
 
         # Send the dot file as an attachment
@@ -1163,7 +1168,7 @@ def export_dot_layout():
             file_path,
             as_attachment=True,
             mimetype="application/dot",
-            download_name=file_path,
+            download_name="layout.dot",
         )
 
     except Exception as e:
@@ -1183,8 +1188,11 @@ def export_qca_layout():
         if not layout:
             return jsonify({"success": False, "error": "Layout not found."})
 
+        output_dir = os.path.join(os.getcwd(), "exported_layouts")
+        os.makedirs(output_dir, exist_ok=True)
+        file_path = os.path.join(output_dir, "layout_qca.svg")
+
         cell_level_layout = apply_qca_one_library(layout)
-        file_path = f"layout_qca.svg"
         params = write_qca_layout_svg_params()
         write_qca_layout_svg(cell_level_layout, file_path, params)
 
@@ -1192,7 +1200,7 @@ def export_qca_layout():
             file_path,
             as_attachment=True,
             mimetype="application/svg",
-            download_name=file_path,
+            download_name="layout_qca.svg",
         )
 
     except Exception as e:
@@ -1214,7 +1222,11 @@ def export_sidb_layout():
 
         hex_layout = hexagonalization(layout)
         cell_level_layout = apply_bestagon_library(hex_layout)
-        file_path = f"layout_sidb.svg"
+
+        output_dir = os.path.join(os.getcwd(), "exported_layouts")
+        os.makedirs(output_dir, exist_ok=True)
+        file_path = os.path.join(output_dir, "layout_sidb.svg")
+
         write_sqd_layout(cell_level_layout, file_path)
 
         params = write_sidb_layout_svg_params()
@@ -1225,7 +1237,7 @@ def export_sidb_layout():
             file_path,
             as_attachment=True,
             mimetype="application/svg",
-            download_name=file_path,
+            download_name="layout_sidb.svg",
         )
 
     except Exception as e:
@@ -1790,7 +1802,13 @@ def get_layout_information(layout):
                 else:
                     raise Exception("Unsupported gate type")
 
-                gate_info = {"x": x, "y": y, "type": gate_type, "connections": [], "name": name}
+                gate_info = {
+                    "x": x,
+                    "y": y,
+                    "type": gate_type,
+                    "connections": [],
+                    "name": name,
+                }
                 # Get fanins (source nodes)
                 fanins = layout.fanins((x, y))
                 for fin in fanins:
@@ -1808,7 +1826,13 @@ def get_layout_information(layout):
 
 
 def start_server():
-    app.run(debug=False)
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
+    print(
+        "Server is hosted at: http://127.0.0.1:5001.",
+        "To stop it, interrupt the process (e.g., via CTRL+C). \n",
+    )
+    cli.show_server_banner = lambda *_args: None
+    app.run(debug=False, port=5001)
 
 
 if __name__ == "__main__":
