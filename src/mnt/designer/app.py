@@ -31,6 +31,9 @@ from mnt.pyfiction import (
     write_qca_layout_svg_params,
     hexagonalization,
     a_star,
+    write_sidb_layout_svg_params,
+    write_sidb_layout_svg,
+    color_mode,
 )
 
 try:
@@ -1211,13 +1214,17 @@ def export_sidb_layout():
 
         hex_layout = hexagonalization(layout)
         cell_level_layout = apply_bestagon_library(hex_layout)
-        file_path = f"layout_sidb.sqd"
+        file_path = f"layout_sidb.svg"
         write_sqd_layout(cell_level_layout, file_path)
+
+        params = write_sidb_layout_svg_params()
+        params.color_background = color_mode.DARK
+        write_sidb_layout_svg(cell_level_layout, file_path, params)
 
         return send_file(
             file_path,
             as_attachment=True,
-            mimetype="application/sqd",
+            mimetype="application/svg",
             download_name=file_path,
         )
 
