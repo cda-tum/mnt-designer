@@ -16,24 +16,23 @@ MNT Designer is a comprehensive, fully open-source,
 GUI-based tool that advances the design of Field-coupled
 Nanocomputing circuits from high-level logic specifications
 through to fabrication-ready, cell-level layouts. By unifying
-previously separate stages such as physical design, “on-the-
-fly” gate design, and verification in a graphical user inter-
-face, the tool streamlines an otherwise fragmented workflow.
+previously separate stages such as physical design, “on-the-fly” 
+gate design, and verification in a graphical user interface, 
+the tool streamlines an otherwise fragmented workflow.
 Specifically, it enables researchers and designers to import
 and edit high-level logic descriptions, generate and refine
 gate-level layouts, verify design-rule compliance, and export
 completed designs for simulation and fabrication.
 The modularity and scalability of the proposed approach
 accommodate both exact and heuristic algorithms, offering
-flexibility in tackling the wide range of problems and con-
-straints inherent to FCN technologies. The ability to manu-
-ally adjust layouts alongside automated post-layout optimiza-
-tion algorithms further empowers experts to explore custom
+flexibility in tackling the wide range of problems and constraints 
+inherent to FCN technologies. The ability to manually adjust layouts
+alongside automated post-layout optimization algorithms further empowers experts to explore custom
 solutions for performance-critical or domain-specific designs.
 Moreover, the integrated gate-design functionality for SiDBs
 facilitates rapid prototyping and testing of new concepts.
-Overall, by integrating these capabilities into a single, user-
-friendly environment, the presented tool fills a critical gap in
+Overall, by integrating these capabilities into a single, user-friendly 
+environment, the presented tool fills a critical gap in
 existing FCN design tools. It thereby accelerates research and
 development in nanoscale computing, ultimately paving the
 way for more efficient, reliable, and scalable FCN circuits.
