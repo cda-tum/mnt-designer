@@ -6,6 +6,7 @@ import logging
 import webbrowser
 
 from flask import Flask, jsonify, render_template, request, send_file, session, cli
+from werkzeug.utils import secure_filename
 
 from mnt.pyfiction import (
     cartesian_gate_layout,
@@ -1249,13 +1250,25 @@ def export_sidb_layout():
             os.remove(file_path)
 
 
+MAX_IMPORT_LAYOUT_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
 @app.route("/import_layout", methods=["POST"])
 def import_layout():
     try:
         # Get the uploaded file with the key 'file'
         file = request.files.get("file")
-        if not file:
+        if not file or not file.filename:
             return jsonify({"success": False, "error": "No file provided."})
+
+        filename = secure_filename(file.filename)
+        if not filename.lower().endswith(".fgl"):
+            return jsonify({"success": False, "error": "Invalid file type. Only .fgl files are allowed."})
+
+        file.seek(0, os.SEEK_END)
+        if file.tell() > MAX_IMPORT_LAYOUT_SIZE:
+            return jsonify({"success": False, "error": "File is too large."})
+        file.seek(0)
 
         # Create a temporary file to save the uploaded fgl file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".fgl") as temp_file:
@@ -1840,4 +1853,4 @@ def start_server():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
