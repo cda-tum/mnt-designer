@@ -2,22 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>FCN Designer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Design, refine, and verify field-coupled nanocomputing circuits with MNT Designer." />
+    <title>MNT Designer</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" />
     <!-- Bootstrap CSS -->
     <link
       rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+      crossorigin="anonymous"
     />
     <!-- Cytoscape.js -->
-    <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.34.3/dist/cytoscape.min.js"></script>
     <!-- Font Awesome -->
     <link
       rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
     />
     <!-- Include Ace Editor -->
     <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"
+      src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.44.0/ace.js"
       crossorigin="anonymous"
     ></script>
     <!-- Custom CSS -->
@@ -27,1321 +32,1212 @@
     />
   </head>
   <body>
-    <div class="container my-4">
-      <h1 class="mb-4 text-center">FCN Designer</h1>
-      <!-- Layout Form -->
-      <form id="layout-form" class="row g-3 mb-4 justify-content-center">
-        <div class="col-auto">
-          <label for="x-dimension" class="visually-hidden">Width (X)</label>
-          <input
-            type="number"
-            id="x-dimension"
-            name="x-dimension"
-            class="form-control"
-            placeholder="Width (X)"
-            required
-            min="1"
-          />
-        </div>
-        <div class="col-auto">
-          <label for="y-dimension" class="visually-hidden">Height (Y)</label>
-          <input
-            type="number"
-            id="y-dimension"
-            name="y-dimension"
-            class="form-control"
-            placeholder="Height (Y)"
-            required
-            min="1"
-          />
-        </div>
-        <div class="col-auto d-flex align-items-center">
-          <button
-            type="submit"
-            class="btn btn-primary mb-3 me-2"
-            id="resize-button"
-          >
-            Resize Layout
+    <a class="skip-link" href="#design-workspace">Skip to the design workspace</a>
+    <header class="app-header">
+      <div class="header-inner">
+        <a class="app-brand" href="{{ url_for('index') }}" aria-label="MNT Designer home">
+          <img class="brand-wordmark" src="{{ url_for('static', filename='mnt_dark.svg') }}" alt="MNT" width="86" height="40" />
+          <span class="brand-copy">
+            <span class="brand-name">Designer</span>
+            <span class="brand-tagline">Field-coupled nanocomputing</span>
+          </span>
+        </a>
+        <nav class="header-nav" aria-label="Project navigation">
+          <button type="button" class="btn btn-quiet" data-bs-toggle="modal" data-bs-target="#helpModal">
+            <i class="far fa-question-circle" aria-hidden="true"></i> Quick guide
           </button>
-          <button
-            type="button"
-            class="btn btn-secondary mb-3 me-2"
-            id="reset-layout-button"
-          >
-            Reset Layout
-          </button>
-          <button
-            type="button"
-            class="btn btn-secondary mb-3"
-            id="reset-editor-button"
-          >
-            Reset Editor
-          </button>
-        </div>
-      </form>
-      <!-- Import/Export Buttons -->
-      <div class="btn-group mb-3 d-flex justify-content-center" role="group">
-        <button
-          type="button"
-          id="import-verilog-button"
-          class="btn btn-outline-primary"
-        >
-          <i class="fas fa-file-import"></i> Import Verilog
-        </button>
-        <button
-          type="button"
-          id="import-button"
-          class="btn btn-outline-primary"
-        >
-          <i class="fas fa-file-import"></i> Import Layout
-        </button>
-        <button
-          type="button"
-          id="export-fgl-layout-button"
-          class="btn btn-outline-primary"
-        >
-          <i class="fas fa-file-export"></i> Export Layout
-        </button>
-        <button
-          type="button"
-          id="export-dot-layout-button"
-          class="btn btn-outline-primary"
-        >
-          <i class="fas fa-file-export"></i> Export DOT Layout
-        </button>
-        <button
-          type="button"
-          id="export-qca-layout-button"
-          class="btn btn-outline-primary"
-        >
-          <i class="fas fa-file-export"></i> Export QCA Layout
-        </button>
-        <button
-          type="button"
-          id="export-sidb-layout-button"
-          class="btn btn-outline-primary"
-        >
-          <i class="fas fa-file-export"></i> Export hexagonalized SiDB Layout
-        </button>
+          <a class="btn btn-quiet" href="https://github.com/cda-tum/mnt-designer" target="_blank" rel="noopener noreferrer">
+            <i class="fab fa-github" aria-hidden="true"></i> GitHub
+          </a>
+        </nav>
       </div>
-      <!-- Hidden File Input for Import -->
-      <input
-        type="file"
-        id="import-file-input"
-        accept=".fgl"
-        style="display: none"
-      />
-      <input
-        type="file"
-        id="import-verilog-file-input"
-        accept=".v"
-        style="display: none"
-      />
-      <!-- Gate Selection -->
-      <div
-        id="gate-selection"
-        class="btn-group mb-3 d-flex justify-content-center flex-wrap"
-        role="group"
-      >
-        <button
-          type="button"
-          id="pi-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place a Primary Input gate"
-        >
-          <i class="fas fa-sign-in-alt"></i> PI
-        </button>
-        <button
-          type="button"
-          id="po-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place a Primary Output gate"
-        >
-          <i class="fas fa-sign-out-alt"></i> PO
-        </button>
-        <button
-          type="button"
-          id="inv-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place an Inverter gate"
-        >
-          <img
-            src="../static/gates/INV_DIN.svg"
-            alt="BUF Gate"
-            width="25"
-            height="25"
-          />
-          INV
-        </button>
-        <button
-          type="button"
-          id="buf-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place a Buffer"
-        >
-          <img
-            src="../static/gates/BUF_DIN.svg"
-            alt="BUF Gate"
-            width="25"
-            height="25"
-          />
-          BUF
-        </button>
-        <!-- Crossing Top-Bottom Right-Left Gate -->
-        <button
-          type="button"
-          id="bufc-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place a Crossing Top-Bottom Right-Left gate"
-        >
-          <img
-            src="../static/gates/BUFC.svg"
-            alt="BUF Gate"
-            width="25"
-            height="25"
-          />
-          Crossing
-        </button>
-        <!-- Crossing Top-Right Left-Bottom Gate -->
-        <button
-          type="button"
-          id="bufk-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place a Crossing Top-Right Left-Bottom gate"
-        >
-          <img
-            src="../static/gates/BUFK.svg"
-            alt="BUF Gate"
-            width="25"
-            height="25"
-          />
-          Crossing
-        </button>
-        <button
-          type="button"
-          id="and-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place an AND gate"
-        >
-          <img
-            src="../static/gates/AND_DIN.svg"
-            alt="AND Gate"
-            width="25"
-            height="25"
-          />
-          AND
-        </button>
-        <button
-          type="button"
-          id="or-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place an OR gate"
-        >
-          <img
-            src="../static/gates/OR_DIN.svg"
-            alt="OR Gate"
-            width="25"
-            height="25"
-          />
-          OR
-        </button>
-        <button
-          type="button"
-          id="nor-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place a NOR gate"
-        >
-          <img
-            src="../static/gates/NOR_DIN.svg"
-            alt="NOR Gate"
-            width="25"
-            height="25"
-          />
-          NOR
-        </button>
-        <button
-          type="button"
-          id="xor-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place an XOR gate"
-        >
-          <img
-            src="../static/gates/XOR_DIN.svg"
-            alt="XOR Gate"
-            width="25"
-            height="25"
-          />
-          XOR
-        </button>
-        <button
-          type="button"
-          id="xnor-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Place an XNOR gate"
-        >
-          <img
-            src="../static/gates/XNOR_DIN.svg"
-            alt="XOR Gate"
-            width="25"
-            height="25"
-          />
-          XNOR
-        </button>
-        <button
-          type="button"
-          id="connect-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Connect gates"
-        >
-          <i class="fas fa-link"></i> Connect
-        </button>
-        <button
-          type="button"
-          id="move-button"
-          class="btn btn-outline-secondary"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Move a gate"
-        >
-          <i class="fas fa-arrows-alt"></i> Move
-        </button>
-        <button
-          type="button"
-          id="delete-button"
-          class="btn btn-outline-danger"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Delete a gate"
-        >
-          <i class="fas fa-trash-alt"></i> Delete
-        </button>
-        <button
-          type="button"
-          id="cancel-button"
-          class="btn btn-outline-warning"
-          data-bs-toggle="tooltip"
-          data-bs-placement="top"
-          title="Cancel current action"
-        >
-          <i class="fas fa-times"></i> Cancel
-        </button>
+    </header>
+
+    <main class="designer-shell" id="design-workspace" tabindex="-1">
+      <div class="workspace-heading">
+        <div>
+          <h1>MNT Designer</h1>
+          <p>From a few lines of logic to a layout you can explore, refine, and verify.</p>
+        </div>
+        <span class="workspace-tag"><span aria-hidden="true"></span> Design workspace</span>
       </div>
-      <div class="mb-3 d-flex justify-content-center">
-        <!-- ortho Button -->
-        <button type="button" id="ortho-button" class="btn btn-outline-primary">
-          <i class="fas fa-project-diagram"></i> ortho
-        </button>
-        <!-- io SND Button -->
-        <button type="button" id="iosdn-button" class="btn btn-outline-primary">
-          <i class="fas fa-stream"></i> IO SDN
-        </button>
-        <!-- Exact Algorithm Button -->
-        <button
-          type="button"
-          id="exact-button"
-          class="btn btn-outline-primary"
-          data-bs-toggle="modal"
-          data-bs-target="#exactModal"
-        >
-          <i class="fas fa-calculator"></i> exact
-        </button>
-        <!-- Exact Algorithm Parameter Modal -->
-        <div
-          class="modal fade"
-          id="exactModal"
-          tabindex="-1"
-          aria-labelledby="exactModalLabel"
-          aria-hidden="true"
-        >
-          <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="exactModalLabel">
-                  Specify Exact Algorithm Parameters
-                </h5>
-                <button
-                  type="button"
-                  class="btn-close"
-                  data-bs-dismiss="modal"
-                  aria-label="Close"
-                ></button>
+
+      <section class="workflow-panel" aria-label="Design workflow">
+        <div class="workflow-group">
+          <span class="workflow-label">Synthesize</span>
+          <button type="button" id="ortho-button" class="btn btn-primary" title="Synthesize an orthogonal layout from the Verilog editor">
+            <i class="fas fa-project-diagram" aria-hidden="true"></i> Orthogonal
+          </button>
+          <button type="button" id="exact-button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#exactModal">
+            <i class="fas fa-calculator" aria-hidden="true"></i> Exact
+          </button>
+          <button type="button" id="gold-button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#goldModal">
+            <i class="far fa-gem" aria-hidden="true"></i> GOLD
+          </button>
+          <button type="button" id="iosdn-button" class="btn btn-quiet" disabled title="IO SDN is not available in this version." aria-label="IO SDN, not available in this version">
+            <i class="fas fa-stream" aria-hidden="true"></i> IO SDN
+          </button>
+        </div>
+        <div class="workflow-group">
+          <span class="workflow-label">Refine</span>
+          <button type="button" id="optimization-button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#optimizationModal">
+            <i class="fas fa-sliders-h" aria-hidden="true"></i> Optimize
+          </button>
+        </div>
+        <div class="workflow-group">
+          <span class="workflow-label">Verify</span>
+          <button type="button" id="check-rules-button" class="btn btn-secondary">
+            <i class="far fa-check-circle" aria-hidden="true"></i> Design rules
+          </button>
+          <button type="button" id="check-equivalence-button" class="btn btn-secondary">
+            <i class="fas fa-balance-scale" aria-hidden="true"></i> Equivalence
+          </button>
+        </div>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="editor-panel" aria-labelledby="editor-heading">
+          <header class="panel-header">
+            <div class="panel-title">
+              <span class="panel-eyebrow">01 / Logic</span>
+              <h2 id="editor-heading">Verilog</h2>
+            </div>
+            <span class="file-badge" aria-label="Verilog file format">.v</span>
+          </header>
+          <div class="editor-toolbar">
+            <button type="button" id="import-verilog-button" class="btn btn-secondary">
+              <i class="fas fa-file-import" aria-hidden="true"></i> Import Verilog
+            </button>
+            <button type="button" id="load-example-button" class="btn btn-quiet">Try an example</button>
+            <button type="button" id="reset-editor-button" class="btn btn-icon" title="Clear the editor" aria-label="Clear the editor">
+              <i class="far fa-trash-alt" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div id="editor-container" aria-label="Verilog code editor"></div>
+          <footer class="editor-footer">
+            <span id="editor-status" role="status">No code loaded</span>
+            <small>Auto-saved to this session</small>
+          </footer>
+        </section>
+
+        <section class="layout-panel" aria-labelledby="layout-heading">
+          <header class="panel-header">
+            <div class="panel-title">
+              <span class="panel-eyebrow">02 / Physical design</span>
+              <h2 id="layout-heading">Layout canvas</h2>
+            </div>
+            <div class="panel-actions layout-metrics" aria-label="Layout statistics">
+              <span class="layout-metric" id="layout-size">No layout</span>
+              <span class="layout-metric" id="layout-gates">0 occupied tiles</span>
+            </div>
+          </header>
+          <div class="layout-toolbar">
+            <form id="layout-form">
+              <div class="dimension-field">
+                <label for="x-dimension">W <span class="visually-hidden">(X dimension)</span></label>
+                <input type="number" id="x-dimension" name="x-dimension" class="form-control" value="12" placeholder="Width (X)" required min="1" />
               </div>
-              <div class="modal-body">
-                <form id="exact-params-form">
-                  <!-- Upper Bound X -->
-                  <div class="mb-4">
-                    <label for="exact-upper-bound-x" class="form-label">
-                      Upper Bound X
-                    </label>
-                    <input
-                      type="number"
-                      class="form-control"
-                      id="exact-upper-bound-x"
-                      placeholder="Enter upper bound X dimension"
-                      min="1"
-                      aria-describedby="exact-upper-bound-x-help"
-                    />
-                    <small
-                      id="exact-upper-bound-x-help"
-                      class="form-text text-muted"
-                    >
-                      Number of tiles to use as an upper bound in x direction.
-                    </small>
-                  </div>
-
-                  <!-- Upper Bound Y -->
-                  <div class="mb-4">
-                    <label for="exact-upper-bound-y" class="form-label">
-                      Upper Bound Y
-                    </label>
-                    <input
-                      type="number"
-                      class="form-control"
-                      id="exact-upper-bound-y"
-                      placeholder="Enter upper bound Y dimension"
-                      min="1"
-                      aria-describedby="exact-upper-bound-y-help"
-                    />
-                    <small
-                      id="exact-upper-bound-y-help"
-                      class="form-text text-muted"
-                    >
-                      Number of tiles to use as an upper bound in y direction.
-                    </small>
-                  </div>
-
-                  <!-- Fixed Size -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Fixed Size</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-fixed-size"
-                        id="exact-fixed-size-false"
-                        value="false"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-fixed-size-false"
-                      >
-                        No
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-fixed-size"
-                        id="exact-fixed-size-true"
-                        value="true"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-fixed-size-true"
-                      >
-                        Yes
-                      </label>
-                    </div>
-                    <small
-                      id="exact-fixed-size-help"
-                      class="form-text text-muted"
-                    >
-                      Investigate only aspect ratios matching the upper bounds.
-                    </small>
-                  </fieldset>
-
-                  <!-- Number of Threads -->
-                  <div class="mb-4">
-                    <label for="exact-num-threads" class="form-label">
-                      Number of Threads
-                    </label>
-                    <input
-                      type="number"
-                      class="form-control"
-                      id="exact-num-threads"
-                      placeholder="Enter number of threads"
-                      min="1"
-                      value="1"
-                      aria-describedby="exact-num-threads-help"
-                    />
-                    <small
-                      id="exact-num-threads-help"
-                      class="form-text text-muted"
-                    >
-                      Number of threads to use for exploring aspect ratios.
-                    </small>
-                  </div>
-
-                  <!-- Crossings Allowed -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Crossings Allowed</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-crossings"
-                        id="exact-crossings-false"
-                        value="false"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-crossings-false"
-                      >
-                        No
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-crossings"
-                        id="exact-crossings-true"
-                        value="true"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-crossings-true"
-                      >
-                        Yes
-                      </label>
-                    </div>
-                    <small
-                      id="exact-crossings-help"
-                      class="form-text text-muted"
-                    >
-                      Allow crossings in the layout.
-                    </small>
-                  </fieldset>
-
-                  <!-- Border IO -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Border IO</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-border-io"
-                        id="exact-border-io-false"
-                        value="false"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-border-io-false"
-                      >
-                        No
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-border-io"
-                        id="exact-border-io-true"
-                        value="true"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-border-io-true"
-                      >
-                        Yes
-                      </label>
-                    </div>
-                    <small
-                      id="exact-border-io-help"
-                      class="form-text text-muted"
-                    >
-                      Place I/Os at the layout's border.
-                    </small>
-                  </fieldset>
-
-                  <!-- Straight Inverters -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Straight Inverters</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-straight-inverters"
-                        id="exact-straight-inverters-false"
-                        value="false"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-straight-inverters-false"
-                      >
-                        No
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-straight-inverters"
-                        id="exact-straight-inverters-true"
-                        value="true"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-straight-inverters-true"
-                      >
-                        Yes
-                      </label>
-                    </div>
-                    <small
-                      id="exact-straight-inverters-help"
-                      class="form-text text-muted"
-                    >
-                      Use straight inverters over bend ones.
-                    </small>
-                  </fieldset>
-
-                  <!-- Desynchronize -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Desynchronize</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-desynchronize"
-                        id="exact-desynchronize-false"
-                        value="false"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-desynchronize-false"
-                      >
-                        No
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-desynchronize"
-                        id="exact-desynchronize-true"
-                        value="true"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-desynchronize-true"
-                      >
-                        Yes
-                      </label>
-                    </div>
-                    <small
-                      id="exact-desynchronize-help"
-                      class="form-text text-muted"
-                    >
-                      Allow discrepancies in fan-in path lengths.
-                    </small>
-                  </fieldset>
-
-                  <!-- Minimize Wires -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Minimize Wires</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-minimize-wires"
-                        id="exact-minimize-wires-false"
-                        value="false"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-minimize-wires-false"
-                      >
-                        No
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-minimize-wires"
-                        id="exact-minimize-wires-true"
-                        value="true"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-minimize-wires-true"
-                      >
-                        Yes
-                      </label>
-                    </div>
-                    <small
-                      id="exact-minimize-wires-help"
-                      class="form-text text-muted"
-                    >
-                      Minimize the number of wires used.
-                    </small>
-                  </fieldset>
-
-                  <!-- Minimize Crossings -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Minimize Crossings</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-minimize-crossings"
-                        id="exact-minimize-crossings-false"
-                        value="false"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-minimize-crossings-false"
-                      >
-                        No
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="exact-minimize-crossings"
-                        id="exact-minimize-crossings-true"
-                        value="true"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="exact-minimize-crossings-true"
-                      >
-                        Yes
-                      </label>
-                    </div>
-                    <small
-                      id="exact-minimize-crossings-help"
-                      class="form-text text-muted"
-                    >
-                      Minimize the number of crossings used.
-                    </small>
-                  </fieldset>
-
-                  <!-- Timeout -->
-                  <div class="mb-4">
-                    <label for="exact-timeout" class="form-label"
-                      >Timeout (ms)</label
-                    >
-                    <input
-                      type="number"
-                      class="form-control"
-                      id="exact-timeout"
-                      placeholder="Enter timeout in milliseconds"
-                      min="1"
-                      value="4294967"
-                      aria-describedby="exact-timeout-help"
-                    />
-                    <small id="exact-timeout-help" class="form-text text-muted">
-                      Set a timeout in milliseconds for the solving process.
-                    </small>
-                  </div>
-                </form>
+              <span class="dimension-separator" aria-hidden="true">×</span>
+              <div class="dimension-field">
+                <label for="y-dimension">H <span class="visually-hidden">(Y dimension)</span></label>
+                <input type="number" id="y-dimension" name="y-dimension" class="form-control" value="10" placeholder="Height (Y)" required min="1" />
               </div>
-              <div class="modal-footer">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  data-bs-dismiss="modal"
-                >
-                  Close
+              <button type="submit" class="btn btn-secondary" id="resize-button">Resize</button>
+              <button type="button" class="btn btn-icon" id="reset-layout-button" title="Reset the layout" aria-label="Reset the layout">
+                <i class="fas fa-redo-alt" aria-hidden="true"></i>
+              </button>
+            </form>
+            <div class="layout-actions">
+              <button type="button" id="import-button" class="btn btn-quiet">
+                <i class="fas fa-file-import" aria-hidden="true"></i> Import layout
+              </button>
+              <div class="dropdown">
+                <button type="button" id="layout-export-menu" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="fas fa-arrow-up" aria-hidden="true"></i> Export
                 </button>
-                <button type="button" id="apply-exact" class="btn btn-primary">
-                  Run exact
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="layout-export-menu">
+                  <li><h3 class="dropdown-header">Choose a format</h3></li>
+                  <li><button type="button" id="export-fgl-layout-button" class="dropdown-item">Gate-level layout <span class="export-format">.fgl</span></button></li>
+                  <li><button type="button" id="export-dot-layout-button" class="dropdown-item">DOT layout <span class="export-format">.dot</span></button></li>
+                  <li><hr class="dropdown-divider" /></li>
+                  <li><button type="button" id="export-qca-layout-button" class="dropdown-item">QCA cell layout <span class="export-format">.svg</span></button></li>
+                  <li><button type="button" id="export-sidb-layout-button" class="dropdown-item">Hexagonal SiDB layout <span class="export-format">.svg</span></button></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="gate-toolbar">
+            <div id="gate-selection" role="group" aria-label="Gate placement and editing">
+              <div class="gate-group" role="group" aria-label="Inputs, outputs, and buffers">
+                <button type="button" id="pi-button" class="btn btn-tool btn-outline-secondary" title="Place a primary input" aria-pressed="false">
+                  <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+                  PI
+                </button>
+                <button type="button" id="po-button" class="btn btn-tool btn-outline-secondary" title="Place a primary output" aria-pressed="false">
+                  <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                  PO
+                </button>
+                <button type="button" id="inv-button" class="btn btn-tool btn-outline-secondary" title="Place an inverter" aria-pressed="false">
+                  <img src="{{ url_for('static', filename='gates/INV_DIN.svg') }}" alt="" width="25" height="25" />
+                  INV
+                </button>
+                <button type="button" id="buf-button" class="btn btn-tool btn-outline-secondary" title="Place a buffer" aria-pressed="false">
+                  <img src="{{ url_for('static', filename='gates/BUF_DIN.svg') }}" alt="" width="25" height="25" />
+                  BUF
+                </button>
+              </div>
+              <div class="gate-group" role="group" aria-label="Logic gates">
+                <button type="button" id="and-button" class="btn btn-tool btn-outline-secondary" title="Place an AND gate" aria-pressed="false">
+                  <img src="{{ url_for('static', filename='gates/AND_DIN.svg') }}" alt="" width="25" height="25" />
+                  AND
+                </button>
+                <button type="button" id="or-button" class="btn btn-tool btn-outline-secondary" title="Place an OR gate" aria-pressed="false">
+                  <img src="{{ url_for('static', filename='gates/OR_DIN.svg') }}" alt="" width="25" height="25" />
+                  OR
+                </button>
+                <button type="button" id="nor-button" class="btn btn-tool btn-outline-secondary" title="Place a NOR gate" aria-pressed="false">
+                  <img src="{{ url_for('static', filename='gates/NOR_DIN.svg') }}" alt="" width="25" height="25" />
+                  NOR
+                </button>
+                <button type="button" id="xor-button" class="btn btn-tool btn-outline-secondary" title="Place an XOR gate" aria-pressed="false">
+                  <img src="{{ url_for('static', filename='gates/XOR_DIN.svg') }}" alt="" width="25" height="25" />
+                  XOR
+                </button>
+                <button type="button" id="xnor-button" class="btn btn-tool btn-outline-secondary" title="Place an XNOR gate" aria-pressed="false">
+                  <img src="{{ url_for('static', filename='gates/XNOR_DIN.svg') }}" alt="" width="25" height="25" />
+                  XNOR
+                </button>
+              </div>
+              <div class="gate-group" role="group" aria-label="Routing and editing tools">
+                <button type="button" id="bufc-button" class="btn btn-tool btn-outline-secondary" title="Place a straight crossing: top–bottom and left–right" aria-pressed="false">
+                  <img src="{{ url_for('static', filename='gates/BUFC.svg') }}" alt="" width="25" height="25" />
+                  Crossing
+                </button>
+                <button type="button" id="bufk-button" class="btn btn-tool btn-outline-secondary" title="Place a crossing: top–right and left–bottom" aria-pressed="false">
+                  <img src="{{ url_for('static', filename='gates/BUFK.svg') }}" alt="" width="25" height="25" />
+                  Crossing
+                </button>
+                <button type="button" id="connect-button" class="btn btn-tool btn-outline-secondary" title="Connect gates" aria-pressed="false">
+                  <i class="fas fa-link" aria-hidden="true"></i>
+                  Connect
+                </button>
+                <button type="button" id="move-button" class="btn btn-tool btn-outline-secondary" title="Move a gate" aria-pressed="false">
+                  <i class="fas fa-arrows-alt" aria-hidden="true"></i>
+                  Move
+                </button>
+                <button type="button" id="delete-button" class="btn btn-tool btn-outline-danger" title="Delete a gate" aria-pressed="false">
+                  <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                  Delete
+                </button>
+                <button type="button" id="cancel-button" class="btn btn-tool btn-outline-secondary" title="Cancel the current action" aria-pressed="false">
+                  <i class="fas fa-times" aria-hidden="true"></i>
+                  Cancel
                 </button>
               </div>
             </div>
           </div>
-        </div>
-        <!-- Gold Button -->
-        <button
-          type="button"
-          id="gold-button"
-          class="btn btn-outline-primary"
-          data-bs-toggle="modal"
-          data-bs-target="#goldModal"
-        >
-          <i class="fas fa-gem"></i> gold
-        </button>
-        <!-- Gold Algorithm Parameter Modal -->
-        <div
-          class="modal fade"
-          id="goldModal"
-          tabindex="-1"
-          aria-labelledby="goldModalLabel"
-          aria-hidden="true"
-        >
-          <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="goldModalLabel">
-                  Specify Gold Parameters
-                </h5>
-                <button
-                  type="button"
-                  class="btn-close"
-                  data-bs-dismiss="modal"
-                  aria-label="Close"
-                ></button>
-              </div>
-              <div class="modal-body">
-                <form id="gold-params-form">
-                  <!-- Return Layout Options -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Return Layout Option</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="gold-return-first"
-                        id="gold-return-first-best"
-                        value="false"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="gold-return-first-best"
-                      >
-                        Return Best Found Layout
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="gold-return-first"
-                        id="gold-return-first-first"
-                        value="true"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="gold-return-first-first"
-                      >
-                        Return First Found Layout
-                      </label>
-                    </div>
-                  </fieldset>
 
-                  <!-- Effort Mode Options -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Effort Mode</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="gold-mode"
-                        id="gold-mode-high-efficiency"
-                        value="HIGH_EFFICIENCY"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="gold-mode-high-efficiency"
-                      >
-                        High Efficiency
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="gold-mode"
-                        id="gold-mode-high-effort"
-                        value="HIGH_EFFORT"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="gold-mode-high-effort"
-                      >
-                        High Effort
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="gold-mode"
-                        id="gold-mode-highest-effort"
-                        value="HIGHEST_EFFORT"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="gold-mode-highest-effort"
-                      >
-                        Highest Effort
-                      </label>
-                    </div>
-                  </fieldset>
-
-                  <!-- Timeout Input -->
-                  <div class="mb-4">
-                    <label for="gold-timeout" class="form-label"
-                      >Timeout (ms)</label
-                    >
-                    <input
-                      type="number"
-                      class="form-control"
-                      id="gold-timeout"
-                      placeholder="Enter value (1-10000)"
-                      min="1"
-                      max="10000"
-                      value="1000"
-                      aria-describedby="gold-timeout-help"
-                    />
-                    <small id="gold-timeout-help" class="form-text text-muted">
-                      Specify the maximum time in milliseconds before the
-                      process times out. Available range: 1-10000.
-                    </small>
-                  </div>
-
-                  <!-- Number of Vertex Expansions Input -->
-                  <div class="mb-4">
-                    <label for="gold-num-vertex-expansions" class="form-label">
-                      Number of Vertex Expansions
-                    </label>
-                    <input
-                      type="number"
-                      class="form-control"
-                      id="gold-num-vertex-expansions"
-                      placeholder="Enter value (1-100)"
-                      min="1"
-                      max="100"
-                      value="4"
-                      aria-describedby="gold-num-vertex-expansions-help"
-                    />
-                    <small
-                      id="gold-num-vertex-expansions-help"
-                      class="form-text text-muted"
-                    >
-                      Define how many vertices can be expanded during the layout
-                      design. Available range: 1-100.
-                    </small>
-                  </div>
-
-                  <!-- Planar Options -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Planarity</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="gold-planar"
-                        id="gold-planar-permit-crossings"
-                        value="false"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="gold-planar-permit-crossings"
-                      >
-                        Permit Crossings
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="gold-planar"
-                        id="gold-planar-fully-planar"
-                        value="true"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="gold-planar-fully-planar"
-                      >
-                        Fully Planar
-                      </label>
-                    </div>
-                  </fieldset>
-
-                  <!-- Cost Options -->
-                  <div class="mb-4">
-                    <label for="gold-cost" class="form-label">Cost</label>
-                    <select
-                      class="form-select"
-                      id="gold-cost"
-                      aria-label="Select Cost Metric"
-                    >
-                      <option value="AREA">Layout Area</option>
-                      <option value="WIRES">Number of Wires</option>
-                      <option value="CROSSINGS">Number of Crossings</option>
-                      <option value="ACP">Area-Crossing Product</option>
-                    </select>
-                    <small id="gold-cost-help" class="form-text text-muted">
-                      Choose the primary metric for evaluating layout costs.
-                    </small>
-                  </div>
-
-                  <!-- Enable Multithreading Options -->
-                  <fieldset class="mb-4">
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        name="gold-enable-multithreading"
-                        id="gold-enable-multithreading"
-                        value="true"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="gold-enable-multithreading"
-                      >
-                        Enable Multithreading
-                      </label>
-                    </div>
-                    <small
-                      id="gold-multithreading-help"
-                      class="form-text text-muted"
-                    >
-                      Enable multi-threading to improve performance on
-                      multi-core processors.
-                    </small>
-                  </fieldset>
-                </form>
-              </div>
-              <div class="modal-footer">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  data-bs-dismiss="modal"
-                >
-                  Close
-                </button>
-                <button type="button" id="apply-gold" class="btn btn-primary">
-                  Run gold
+          <div class="canvas-stage">
+            <div id="cy" tabindex="0" role="application" aria-label="Circuit layout canvas. Select a gate or editing tool, then click a tile. Use arrow keys to pan when the canvas is focused." aria-describedby="canvas-navigation-help"></div>
+            <div id="canvas-empty">
+              <div class="canvas-empty-content">
+                <svg class="circuit-illustration" viewBox="0 0 324 120" aria-hidden="true">
+                  <g class="circuit-traces" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path class="circuit-track" d="M20 30H70M106 30H124V51H158M20 90H70M106 90H124V69H158M194 60H248M284 60H304" />
+                    <path class="circuit-draw" pathLength="1" d="M20 30H70M106 30H124V51H158M20 90H70M106 90H124V69H158M194 60H248M284 60H304" />
+                  </g>
+                  <g class="circuit-terminals">
+                    <circle cx="20" cy="30" r="4" /><circle cx="20" cy="90" r="4" /><circle cx="304" cy="60" r="4" />
+                  </g>
+                  <g class="circuit-tile circuit-tile-input">
+                    <rect x="70" y="12" width="36" height="36" rx="10" />
+                    <path d="M82 23L95 30L82 37Z" />
+                    <rect x="70" y="72" width="36" height="36" rx="10" />
+                    <path d="M82 83L95 90L82 97Z" />
+                  </g>
+                  <g class="circuit-tile circuit-tile-logic">
+                    <rect x="158" y="42" width="36" height="36" rx="10" />
+                    <path d="M169 51H175A9 9 0 0 1 175 69H169Z" />
+                  </g>
+                  <g class="circuit-tile circuit-tile-output">
+                    <rect x="248" y="42" width="36" height="36" rx="10" />
+                    <path d="M259 60H273M267 54L273 60L267 66" />
+                  </g>
+                </svg>
+                <h3>Your next circuit starts here.</h3>
+                <p>Create a blank layout to place gates, or try the Verilog example and synthesize your first design.</p>
+                <button type="button" id="empty-create-button" class="btn btn-primary">
+                  <i class="fas fa-plus" aria-hidden="true"></i> Create a blank layout
                 </button>
               </div>
             </div>
           </div>
-        </div>
-        <!-- Post-Layout Optimization Button -->
-        <button
-          type="button"
-          id="optimization-button"
-          class="btn btn-outline-warning"
-          data-bs-toggle="modal"
-          data-bs-target="#optimizationModal"
-        >
-          <i class="fas fa-cogs"></i> Optimize Layout
-        </button>
-        <!-- Post-Layout Optimization Parameter Modal -->
-        <!-- Optimization Parameters Modal -->
-        <div
-          class="modal fade"
-          id="optimizationModal"
-          tabindex="-1"
-          aria-labelledby="optimizationModalLabel"
-          aria-hidden="true"
-        >
-          <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="optimizationModalLabel">
-                  Specify Optimization Parameters
-                </h5>
-                <button
-                  type="button"
-                  class="btn-close"
-                  data-bs-dismiss="modal"
-                  aria-label="Close"
-                ></button>
-              </div>
-              <div class="modal-body">
-                <form id="optimization-params-form">
-                  <!-- Max Gate Relocations -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Max Gate Relocations</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="max-gate-relocations"
-                        id="max-gate-relocations-max"
-                        value="max"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="max-gate-relocations-max"
-                      >
-                        Max
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="max-gate-relocations"
-                        id="max-gate-relocations-custom"
-                        value="custom"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="max-gate-relocations-custom"
-                      >
-                        Custom
-                      </label>
-                    </div>
-                  </fieldset>
 
-                  <!-- Custom Relocations Input (Shown Only If "Custom" is Selected) -->
-                  <div class="mb-4 d-none" id="custom-relocations-input">
-                    <label for="custom-max-gate-relocations" class="form-label">
-                      Enter Custom Number of Relocations
-                    </label>
-                    <input
-                      type="number"
-                      class="form-control"
-                      id="custom-max-gate-relocations"
-                      placeholder="Enter custom value (0 to max number of tiles)"
-                      min="0"
-                      aria-describedby="custom-relocations-help"
-                    />
-                    <small
-                      id="custom-relocations-help"
-                      class="form-text text-muted"
-                    >
-                      Specify a custom number of gate relocations. Leave as 0
-                      for wiring reduction only.
-                    </small>
-                  </div>
-
-                  <!-- Optimize PO Positions Only -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Optimize Gate Positions</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="optimize-pos-only"
-                        id="optimize-pos-only-false"
-                        value="false"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="optimize-pos-only-false"
-                      >
-                        All Gates
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="optimize-pos-only"
-                        id="optimize-pos-only-true"
-                        value="true"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="optimize-pos-only-true"
-                      >
-                        POs only
-                      </label>
-                    </div>
-                    <small
-                      id="optimize-pos-only-help"
-                      class="form-text text-muted"
-                    >
-                      Choose which gate positions should be optimized.
-                    </small>
-                  </fieldset>
-
-                  <!-- Planar Optimization -->
-                  <fieldset class="mb-4">
-                    <legend class="form-label">Planarity</legend>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="planar-optimization"
-                        id="planar-optimization-false"
-                        value="false"
-                        checked
-                      />
-                      <label
-                        class="form-check-label"
-                        for="planar-optimization-false"
-                      >
-                        Enable Crossings
-                      </label>
-                    </div>
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="radio"
-                        name="planar-optimization"
-                        id="planar-optimization-true"
-                        value="true"
-                      />
-                      <label
-                        class="form-check-label"
-                        for="planar-optimization-true"
-                      >
-                        Reduce Crossings/ Keep Planarity
-                      </label>
-                    </div>
-                    <small
-                      id="planar-optimization-help"
-                      class="form-text text-muted"
-                    >
-                      Enable planar optimization to ensure that no new crossings
-                      are created and planar layouts stay planar.
-                    </small>
-                  </fieldset>
-
-                  <!-- Timeout Input -->
-                  <div class="mb-4">
-                    <label for="optimization-timeout" class="form-label"
-                      >Timeout (ms)</label
-                    >
-                    <input
-                      type="number"
-                      class="form-control"
-                      id="optimization-timeout"
-                      placeholder="Enter value (1-10000)"
-                      min="1"
-                      max="10000"
-                      value="1000"
-                      aria-describedby="optimization-timeout-help"
-                    />
-                    <small
-                      id="optimization-timeout-help"
-                      class="form-text text-muted"
-                    >
-                      Specify the maximum time in milliseconds before the
-                      optimization process times out. Available range: 1-10000.
-                    </small>
-                  </div>
-                </form>
-              </div>
-              <div class="modal-footer">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  data-bs-dismiss="modal"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  id="apply-optimization"
-                  class="btn btn-primary"
-                >
-                  Optimize
-                </button>
+          <footer class="canvas-footer">
+            <div class="clock-legend" aria-label="Four clock phases">
+              <span class="legend-label">Clock phases</span>
+              <span class="clock-phase phase-1">1</span>
+              <span class="clock-phase phase-2">2</span>
+              <span class="clock-phase phase-3">3</span>
+              <span class="clock-phase phase-4">4</span>
+            </div>
+            <div class="canvas-tools">
+              <span id="active-tool">Select a tool</span>
+              <div class="zoom-controls" role="group" aria-label="Canvas zoom">
+                <button type="button" id="zoom-out" class="btn btn-icon" title="Zoom out" aria-label="Zoom out"><i class="fas fa-minus" aria-hidden="true"></i></button>
+                <button type="button" id="zoom-in" class="btn btn-icon" title="Zoom in" aria-label="Zoom in"><i class="fas fa-plus" aria-hidden="true"></i></button>
+                <button type="button" id="reset-zoom" class="btn btn-icon" title="Fit the layout to the canvas" aria-label="Fit the layout to the canvas"><i class="fas fa-compress" aria-hidden="true"></i></button>
               </div>
             </div>
-          </div>
-        </div>
-        <!-- Design Rule Check Button -->
-        <button
-          type="button"
-          id="check-rules-button"
-          class="btn btn-outline-success"
-        >
-          <i class="fas fa-check-circle"></i> Check Design Rules
-        </button>
-        <!-- Check Equivalence Button -->
-        <button
-          type="button"
-          id="check-equivalence-button"
-          class="btn btn-outline-info"
-        >
-          <i class="fas fa-balance-scale"></i> Check Equivalence
-        </button>
+            <span class="visually-hidden" id="canvas-navigation-help">Drag the canvas background to pan, scroll to zoom, or focus the canvas and use the arrow keys. Press Escape to cancel the current tool.</span>
+          </footer>
+        </section>
       </div>
-      <!-- Message Area -->
-      <div id="message-area" class="alert alert-info text-center" role="alert">
-        Please create a layout to get started.
+
+
+      <div id="message-area" class="alert alert-info" role="status" aria-live="polite" aria-atomic="true">
+        Ready when you are. Import Verilog, try an example, or create a blank layout.
       </div>
-      <div class="zoom-controls d-flex justify-content-center mb-3">
-        <button id="zoom-in" class="btn btn-outline-secondary mx-2">
-          <i class="fas fa-search-plus"></i> Zoom In
-        </button>
-        <button id="zoom-out" class="btn btn-outline-secondary mx-2">
-          <i class="fas fa-search-minus"></i> Zoom Out
-        </button>
-        <button id="reset-zoom" class="btn btn-outline-secondary mx-2">
-          <i class="fas fa-compress"></i> Reset Zoom
-        </button>
-      </div>
-      <!-- Violations Area with Custom Close Button -->
-      <div
-        id="violations-area"
-        class="alert alert-warning fade show d-none"
-        role="alert"
-      >
-        <button
-          type="button"
-          class="btn-close close-violations"
-          aria-label="Close"
-        ></button>
-        <h5>Design Rule Violations:</h5>
+      <div id="violations-area" class="alert alert-warning fade show d-none" role="alert">
+        <button type="button" class="btn-close close-violations" aria-label="Close design rule results"></button>
+        <h5>Design rule violations</h5>
         <ul id="violations-list"></ul>
       </div>
-      <!-- Equivalence Area with Custom Close Button -->
-      <div
-        id="equivalence-area"
-        class="alert alert-warning alert-dismissible fade show d-none"
-        role="alert"
-      >
-        <button
-          type="button"
-          class="btn-close close-equivalence"
-          aria-label="Close"
-        ></button>
-        <h5>Equivalence:</h5>
-        <!-- Dynamic Content Will Be Injected Here -->
+      <div id="equivalence-area" class="alert alert-warning alert-dismissible fade show d-none" role="alert">
+        <button type="button" class="btn-close close-equivalence" aria-label="Close equivalence results"></button>
+        <h5>Equivalence</h5>
       </div>
-      <div class="row">
-        <div class="col-md-4">
-          <!-- Text Editor -->
-          <div id="editor-container"></div>
-        </div>
-        <div class="col-md-8">
-          <!-- Cytoscape Container -->
-          <div id="cy"></div>
+
+      <footer class="workspace-footer">
+        <span>Your session is temporary. Export your layout to keep a copy.</span>
+        <nav class="footer-links" aria-label="More about MNT Designer">
+          <a href="https://github.com/cda-tum/mnt-designer#references" target="_blank" rel="noopener noreferrer">Research</a>
+          <a href="https://github.com/cda-tum/mnt-designer/issues" target="_blank" rel="noopener noreferrer">Report an issue</a>
+        </nav>
+      </footer>
+    </main>
+
+    <input type="file" id="import-file-input" accept=".fgl" hidden />
+    <input type="file" id="import-verilog-file-input" accept=".v" hidden />
+
+    <div
+      class="modal fade"
+      id="exactModal"
+      tabindex="-1"
+      aria-labelledby="exactModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="exactModalLabel">
+              Exact synthesis
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="exact-params-form">
+              <!-- Upper Bound X -->
+              <div class="mb-4">
+                <label for="exact-upper-bound-x" class="form-label">
+                  Upper Bound X
+                </label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="exact-upper-bound-x"
+                  placeholder="Enter upper bound X dimension"
+                  min="1"
+                  aria-describedby="exact-upper-bound-x-help"
+                />
+                <small
+                  id="exact-upper-bound-x-help"
+                  class="form-text text-muted"
+                >
+                  Number of tiles to use as an upper bound in x direction.
+                </small>
+              </div>
+
+              <!-- Upper Bound Y -->
+              <div class="mb-4">
+                <label for="exact-upper-bound-y" class="form-label">
+                  Upper Bound Y
+                </label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="exact-upper-bound-y"
+                  placeholder="Enter upper bound Y dimension"
+                  min="1"
+                  aria-describedby="exact-upper-bound-y-help"
+                />
+                <small
+                  id="exact-upper-bound-y-help"
+                  class="form-text text-muted"
+                >
+                  Number of tiles to use as an upper bound in y direction.
+                </small>
+              </div>
+
+              <!-- Fixed Size -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Fixed Size</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-fixed-size"
+                    id="exact-fixed-size-false"
+                    value="false"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-fixed-size-false"
+                  >
+                    No
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-fixed-size"
+                    id="exact-fixed-size-true"
+                    value="true"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-fixed-size-true"
+                  >
+                    Yes
+                  </label>
+                </div>
+                <small
+                  id="exact-fixed-size-help"
+                  class="form-text text-muted"
+                >
+                  Investigate only aspect ratios matching the upper bounds.
+                </small>
+              </fieldset>
+
+              <!-- Number of Threads -->
+              <div class="mb-4">
+                <label for="exact-num-threads" class="form-label">
+                  Number of Threads
+                </label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="exact-num-threads"
+                  placeholder="Enter number of threads"
+                  min="1"
+                  value="1"
+                  aria-describedby="exact-num-threads-help"
+                />
+                <small
+                  id="exact-num-threads-help"
+                  class="form-text text-muted"
+                >
+                  Number of threads to use for exploring aspect ratios.
+                </small>
+              </div>
+
+              <!-- Crossings Allowed -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Crossings Allowed</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-crossings"
+                    id="exact-crossings-false"
+                    value="false"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-crossings-false"
+                  >
+                    No
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-crossings"
+                    id="exact-crossings-true"
+                    value="true"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-crossings-true"
+                  >
+                    Yes
+                  </label>
+                </div>
+                <small
+                  id="exact-crossings-help"
+                  class="form-text text-muted"
+                >
+                  Allow crossings in the layout.
+                </small>
+              </fieldset>
+
+              <!-- Border IO -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Border IO</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-border-io"
+                    id="exact-border-io-false"
+                    value="false"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-border-io-false"
+                  >
+                    No
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-border-io"
+                    id="exact-border-io-true"
+                    value="true"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-border-io-true"
+                  >
+                    Yes
+                  </label>
+                </div>
+                <small
+                  id="exact-border-io-help"
+                  class="form-text text-muted"
+                >
+                  Place I/Os at the layout's border.
+                </small>
+              </fieldset>
+
+              <!-- Straight Inverters -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Straight Inverters</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-straight-inverters"
+                    id="exact-straight-inverters-false"
+                    value="false"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-straight-inverters-false"
+                  >
+                    No
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-straight-inverters"
+                    id="exact-straight-inverters-true"
+                    value="true"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-straight-inverters-true"
+                  >
+                    Yes
+                  </label>
+                </div>
+                <small
+                  id="exact-straight-inverters-help"
+                  class="form-text text-muted"
+                >
+                  Use straight inverters over bend ones.
+                </small>
+              </fieldset>
+
+              <!-- Desynchronize -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Desynchronize</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-desynchronize"
+                    id="exact-desynchronize-false"
+                    value="false"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-desynchronize-false"
+                  >
+                    No
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-desynchronize"
+                    id="exact-desynchronize-true"
+                    value="true"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-desynchronize-true"
+                  >
+                    Yes
+                  </label>
+                </div>
+                <small
+                  id="exact-desynchronize-help"
+                  class="form-text text-muted"
+                >
+                  Allow discrepancies in fan-in path lengths.
+                </small>
+              </fieldset>
+
+              <!-- Minimize Wires -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Minimize Wires</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-minimize-wires"
+                    id="exact-minimize-wires-false"
+                    value="false"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-minimize-wires-false"
+                  >
+                    No
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-minimize-wires"
+                    id="exact-minimize-wires-true"
+                    value="true"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-minimize-wires-true"
+                  >
+                    Yes
+                  </label>
+                </div>
+                <small
+                  id="exact-minimize-wires-help"
+                  class="form-text text-muted"
+                >
+                  Minimize the number of wires used.
+                </small>
+              </fieldset>
+
+              <!-- Minimize Crossings -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Minimize Crossings</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-minimize-crossings"
+                    id="exact-minimize-crossings-false"
+                    value="false"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-minimize-crossings-false"
+                  >
+                    No
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="exact-minimize-crossings"
+                    id="exact-minimize-crossings-true"
+                    value="true"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="exact-minimize-crossings-true"
+                  >
+                    Yes
+                  </label>
+                </div>
+                <small
+                  id="exact-minimize-crossings-help"
+                  class="form-text text-muted"
+                >
+                  Minimize the number of crossings used.
+                </small>
+              </fieldset>
+
+              <!-- Timeout -->
+              <div class="mb-4">
+                <label for="exact-timeout" class="form-label"
+                  >Timeout (ms)</label
+                >
+                <input
+                  type="number"
+                  class="form-control"
+                  id="exact-timeout"
+                  placeholder="Enter timeout in milliseconds"
+                  min="1"
+                  value="4294967"
+                  aria-describedby="exact-timeout-help"
+                />
+                <small id="exact-timeout-help" class="form-text text-muted">
+                  Set a timeout in milliseconds for the solving process.
+                </small>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button type="button" id="apply-exact" class="btn btn-primary">
+              Run exact synthesis
+            </button>
+          </div>
         </div>
       </div>
     </div>
+
+    <div
+      class="modal fade"
+      id="goldModal"
+      tabindex="-1"
+      aria-labelledby="goldModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="goldModalLabel">
+              GOLD synthesis
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="gold-params-form">
+              <!-- Return Layout Options -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Return Layout Option</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="gold-return-first"
+                    id="gold-return-first-best"
+                    value="false"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="gold-return-first-best"
+                  >
+                    Return Best Found Layout
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="gold-return-first"
+                    id="gold-return-first-first"
+                    value="true"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="gold-return-first-first"
+                  >
+                    Return First Found Layout
+                  </label>
+                </div>
+              </fieldset>
+
+              <!-- Effort Mode Options -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Effort Mode</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="gold-mode"
+                    id="gold-mode-high-efficiency"
+                    value="HIGH_EFFICIENCY"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="gold-mode-high-efficiency"
+                  >
+                    High Efficiency
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="gold-mode"
+                    id="gold-mode-high-effort"
+                    value="HIGH_EFFORT"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="gold-mode-high-effort"
+                  >
+                    High Effort
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="gold-mode"
+                    id="gold-mode-highest-effort"
+                    value="HIGHEST_EFFORT"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="gold-mode-highest-effort"
+                  >
+                    Highest Effort
+                  </label>
+                </div>
+              </fieldset>
+
+              <!-- Timeout Input -->
+              <div class="mb-4">
+                <label for="gold-timeout" class="form-label"
+                  >Timeout (ms)</label
+                >
+                <input
+                  type="number"
+                  class="form-control"
+                  id="gold-timeout"
+                  placeholder="Enter value (1-10000)"
+                  min="1"
+                  max="10000"
+                  value="1000"
+                  aria-describedby="gold-timeout-help"
+                />
+                <small id="gold-timeout-help" class="form-text text-muted">
+                  Specify the maximum time in milliseconds before the
+                  process times out. Available range: 1-10000.
+                </small>
+              </div>
+
+              <!-- Number of Vertex Expansions Input -->
+              <div class="mb-4">
+                <label for="gold-num-vertex-expansions" class="form-label">
+                  Number of Vertex Expansions
+                </label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="gold-num-vertex-expansions"
+                  placeholder="Enter value (1-100)"
+                  min="1"
+                  max="100"
+                  value="4"
+                  aria-describedby="gold-num-vertex-expansions-help"
+                />
+                <small
+                  id="gold-num-vertex-expansions-help"
+                  class="form-text text-muted"
+                >
+                  Define how many vertices can be expanded during the layout
+                  design. Available range: 1-100.
+                </small>
+              </div>
+
+              <!-- Planar Options -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Planarity</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="gold-planar"
+                    id="gold-planar-permit-crossings"
+                    value="false"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="gold-planar-permit-crossings"
+                  >
+                    Permit Crossings
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="gold-planar"
+                    id="gold-planar-fully-planar"
+                    value="true"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="gold-planar-fully-planar"
+                  >
+                    Fully Planar
+                  </label>
+                </div>
+              </fieldset>
+
+              <!-- Cost Options -->
+              <div class="mb-4">
+                <label for="gold-cost" class="form-label">Cost</label>
+                <select
+                  class="form-select"
+                  id="gold-cost"
+                  aria-label="Select Cost Metric"
+                >
+                  <option value="AREA">Layout Area</option>
+                  <option value="WIRES">Number of Wires</option>
+                  <option value="CROSSINGS">Number of Crossings</option>
+                  <option value="ACP">Area-Crossing Product</option>
+                </select>
+                <small id="gold-cost-help" class="form-text text-muted">
+                  Choose the primary metric for evaluating layout costs.
+                </small>
+              </div>
+
+              <!-- Enable Multithreading Options -->
+              <fieldset class="mb-4">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    name="gold-enable-multithreading"
+                    id="gold-enable-multithreading"
+                    value="true"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="gold-enable-multithreading"
+                  >
+                    Enable Multithreading
+                  </label>
+                </div>
+                <small
+                  id="gold-multithreading-help"
+                  class="form-text text-muted"
+                >
+                  Enable multi-threading to improve performance on
+                  multi-core processors.
+                </small>
+              </fieldset>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button type="button" id="apply-gold" class="btn btn-primary">
+              Run GOLD synthesis
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal fade"
+      id="optimizationModal"
+      tabindex="-1"
+      aria-labelledby="optimizationModalLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="optimizationModalLabel">
+              Refine your layout
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <form id="optimization-params-form">
+              <!-- Max Gate Relocations -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Max Gate Relocations</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="max-gate-relocations"
+                    id="max-gate-relocations-max"
+                    value="max"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="max-gate-relocations-max"
+                  >
+                    Max
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="max-gate-relocations"
+                    id="max-gate-relocations-custom"
+                    value="custom"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="max-gate-relocations-custom"
+                  >
+                    Custom
+                  </label>
+                </div>
+              </fieldset>
+
+              <!-- Custom Relocations Input (Shown Only If "Custom" is Selected) -->
+              <div class="mb-4 d-none" id="custom-relocations-input">
+                <label for="custom-max-gate-relocations" class="form-label">
+                  Enter Custom Number of Relocations
+                </label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="custom-max-gate-relocations"
+                  placeholder="Enter custom value (0 to max number of tiles)"
+                  min="0"
+                  aria-describedby="custom-relocations-help"
+                />
+                <small
+                  id="custom-relocations-help"
+                  class="form-text text-muted"
+                >
+                  Specify a custom number of gate relocations. Leave as 0
+                  for wiring reduction only.
+                </small>
+              </div>
+
+              <!-- Optimize PO Positions Only -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Optimize Gate Positions</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="optimize-pos-only"
+                    id="optimize-pos-only-false"
+                    value="false"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="optimize-pos-only-false"
+                  >
+                    All Gates
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="optimize-pos-only"
+                    id="optimize-pos-only-true"
+                    value="true"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="optimize-pos-only-true"
+                  >
+                    POs only
+                  </label>
+                </div>
+                <small
+                  id="optimize-pos-only-help"
+                  class="form-text text-muted"
+                >
+                  Choose which gate positions should be optimized.
+                </small>
+              </fieldset>
+
+              <!-- Planar Optimization -->
+              <fieldset class="mb-4">
+                <legend class="form-label">Planarity</legend>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="planar-optimization"
+                    id="planar-optimization-false"
+                    value="false"
+                    checked
+                  />
+                  <label
+                    class="form-check-label"
+                    for="planar-optimization-false"
+                  >
+                    Enable Crossings
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="radio"
+                    name="planar-optimization"
+                    id="planar-optimization-true"
+                    value="true"
+                  />
+                  <label
+                    class="form-check-label"
+                    for="planar-optimization-true"
+                  >
+                    Reduce Crossings/ Keep Planarity
+                  </label>
+                </div>
+                <small
+                  id="planar-optimization-help"
+                  class="form-text text-muted"
+                >
+                  Enable planar optimization to ensure that no new crossings
+                  are created and planar layouts stay planar.
+                </small>
+              </fieldset>
+
+              <!-- Timeout Input -->
+              <div class="mb-4">
+                <label for="optimization-timeout" class="form-label"
+                  >Timeout (ms)</label
+                >
+                <input
+                  type="number"
+                  class="form-control"
+                  id="optimization-timeout"
+                  placeholder="Enter value (1-10000)"
+                  min="1"
+                  max="10000"
+                  value="1000"
+                  aria-describedby="optimization-timeout-help"
+                />
+                <small
+                  id="optimization-timeout-help"
+                  class="form-text text-muted"
+                >
+                  Specify the maximum time in milliseconds before the
+                  optimization process times out. Available range: 1-10000.
+                </small>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              id="apply-optimization"
+              class="btn btn-primary"
+            >
+              Optimize
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 class="modal-title" id="helpModalLabel">A quick tour of your workspace</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body quick-guide">
+            <ol class="guide-steps">
+              <li><h3>Start with your logic</h3><p>Write Verilog, import a <code>.v</code> file, or choose <strong>Try an example</strong>. The editor saves your code to the current session.</p></li>
+              <li><h3>Make it a layout</h3><p>Choose <strong>Orthogonal</strong> for a first layout, or explore the parameters in <strong>Exact</strong> and <strong>GOLD</strong>. You can also create a blank layout and place gates yourself.</p></li>
+              <li><h3>Refine, verify, export</h3><p>Optimize the placement, check design rules, and compare the circuit with your Verilog. Export an <code>.fgl</code> file to reopen your work later, or choose a visualization format.</p></li>
+            </ol>
+            <div class="guide-note">
+              <h3>Find your way around</h3>
+              <p>Select a gate or action in the toolbar, then follow the instructions below the workspace. Drag the canvas background to pan and scroll to zoom. When the canvas is focused, use the arrow keys to pan. Press <kbd>Esc</kbd> to cancel the current action.</p>
+              <p>The four tile shades show the clock phases, progressing from 1 through 4. Use the fit button to bring the entire layout back into view.</p>
+              <div class="clock-legend" aria-label="Clock phases one through four">
+                <span class="clock-phase phase-1">1</span>
+                <span class="clock-phase phase-2">2</span>
+                <span class="clock-phase phase-3">3</span>
+                <span class="clock-phase phase-4">4</span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Let's build something</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- jQuery and Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <!-- Bootstrap Bundle JS (includes Popper) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+      crossorigin="anonymous"
+    ></script>
     <!-- Custom Script -->
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
   </body>
