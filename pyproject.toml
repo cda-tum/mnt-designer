@@ -1,7 +1,7 @@
 [build-system]
 requires = [
-    "setuptools>=61",
-    "setuptools_scm>=7",
+    "setuptools>=77.0.3",
+    "setuptools-scm>=8.1",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -12,141 +12,82 @@ readme = "README.md"
 authors = [
     { name = "Simon Hofmann", email = "simon.t.hofmann@tum.de" },
 ]
-keywords = ["MNT",  "field-coupled nanocomputing", "design"]
-license = { file = "LICENSE" }
-requires-python = ">=3.9"
+keywords = ["MNT", "field-coupled nanocomputing", "design"]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
 dynamic = ["version"]
 
 dependencies = [
-    "flask>=2.0.0",
-    "packaging>=21.0",
-    "requests>=2.31.0",
-    "mnt.pyfiction>=0.6.8"
+    "flask>=3.0.0",
+    "mnt.pyfiction>=0.8.0",
 ]
 
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Intended Audience :: Science/Research",
     "Natural Language :: English",
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=7.2"]
-coverage = ["mnt.designer[test]", "pytest-cov[toml]"]
-dev = ["mnt.designer[coverage]"]
+test = ["pytest>=8.2.1"]
+coverage = ["mnt.designer[test]", "pytest-cov"]
 
 [project.scripts]
-"mnt.designer" = "mnt.designer.app:start_server"
+"mnt.designer" = "mnt.designer.app:main"
+"mnt-designer" = "mnt.designer.app:main"
 
 [project.urls]
-Homepage = "https://github.com/cda-tum/mntdesigner"
-"Bug Tracker" = "https://github.com/cda-tum/mntdesigner/issues"
-Discussions = "https://github.com/cda-tum/mntdesigner/discussions"
+Homepage = "https://github.com/cda-tum/mnt-designer"
+"Bug Tracker" = "https://github.com/cda-tum/mnt-designer/issues"
+Discussions = "https://github.com/cda-tum/mnt-designer/discussions"
 Research = "https://www.cda.cit.tum.de/research/nanotech/"
+
+[tool.setuptools]
+# Keep editable installs compatible with mnt.pyfiction's shared namespace.
+package-dir = { "mnt" = "src/mnt" }
+packages = ["mnt", "mnt.designer"]
+include-package-data = false
+
+[tool.setuptools.package-data]
+"mnt.designer" = [
+    "templates/*.html",
+    "static/*.ico",
+    "static/*.svg",
+    "static/css/*.css",
+    "static/js/*.js",
+    "static/gates/*.svg",
+]
 
 [tool.setuptools_scm]
 
 [tool.pytest.ini_options]
-minversion = "7.2"
 testpaths = ["tests"]
-addopts = ["-ra", "--strict-markers", "--strict-config", "--showlocals"]
-log_cli_level = "INFO"
-xfail_strict = true
+addopts = ["-ra", "--strict-config", "--strict-markers"]
 
 [tool.coverage.run]
 source = ["mnt.designer"]
 
 [tool.coverage.report]
-exclude_also = [
-    '\.\.\.',
-    'if TYPE_CHECKING:',
-]
 show_missing = true
 skip_empty = true
 precision = 1
 
-[tool.mypy]
-mypy_path = "$MYPY_CONFIG_FILE_DIR/src"
-files = ["src", "tests", "setup.py"]
-python_version = "3.9"
-strict = true
-show_error_codes = true
-enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
-warn_unreachable = true
-explicit_package_bases = true
-pretty = true
-
-[[tool.mypy.overrides]]
-module = ["joblib.*", "networkx.*", "pandas.*"]
-ignore_missing_imports = true
-
 [tool.ruff]
-# Exclude a variety of commonly ignored directories.
-exclude = [
-    "__init__.py",
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".hg",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
-]
-
 line-length = 120
-extend-include = ["*.ipynb"]
+namespace-packages = ["src/mnt"]
 src = ["src"]
+target-version = "py311"
 
 [tool.ruff.lint]
-extend-select = [
-    "E", "F", "W", # flake8
-    "A",           # flake8-builtins
-    "B",  "B904",  # flake8-bugbear
-    "I",           # isort
-    "ARG",         # flake8-unused-arguments
-    "C4",          # flake8-comprehensions
-    "EM",          # flake8-errmsg
-    "EXE",         # flake8-executable
-    "ICN",         # flake8-import-conventions
-    "ISC",         # flake8-implicit-str-concat
-    "PGH",         # pygrep-hooks
-    "PIE",         # flake8-pie
-    "PL",          # pylint
-    "PT",          # flake8-pytest-style
-    "PTH",         # flake8-use-pathlib
-    "Q",           # flake8-quotes
-    "RET",         # flake8-return
-    "RUF",         # Ruff-specific
-    "SIM",         # flake8-simplify
-    "TCH",         # flake8-type-checking
-    "UP",          # pyupgrade
-    "YTT",         # flake8-2020
-]
-ignore = [
-    "PLR2004", # Magic values
-    "PLR0913", # Too many arguments
-    "E501",    # Line too long (Black is enough)
-]
+select = ["F", "E4", "E7", "E9", "I", "UP", "B"]
