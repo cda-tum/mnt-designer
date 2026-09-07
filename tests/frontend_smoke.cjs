@@ -5,6 +5,18 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../src/mnt/designer/static/js/script.js"), "utf8");
+const startupCode = source.slice(0, source.indexOf("  let selectedGateType")) + "globalThis.started = true; });";
+for (const missing of ["ace", "ace/theme/chrome", "ace/mode/verilog", null]) {
+  const startup = {
+    document: {}, $: () => ({ ready: (callback) => callback() }), started: false,
+    ace: missing === "ace" ? undefined : { require: (name) => name !== missing },
+    updateMessageArea(_message, type) { assert.equal(type, "danger"); },
+  };
+  vm.runInNewContext(startupCode, startup);
+  assert.equal(startup.started, missing === null, "missing verified Ace modules must stop initialization");
+}
+console.log("PASS: blocked Ace startup imports cannot fall back to unchecked downloads");
+
 // Execute the actual editor handlers without loading Ace, Cytoscape, or a browser.
 const editorCode = source.slice(source.indexOf("  let selectedGateType"), source.indexOf("  // Initialize Cytoscape instance"));
 const importCode = source.slice(

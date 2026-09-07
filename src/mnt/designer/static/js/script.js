@@ -1,4 +1,10 @@
 $(document).ready(() => {
+  // Do not let Ace retry a blocked startup module through its unchecked lazy loader.
+  if (typeof ace === "undefined" || !ace.require("ace/theme/chrome") || !ace.require("ace/mode/verilog")) {
+    updateMessageArea("The code editor could not be loaded securely. Please reload the page.", "danger");
+    return;
+  }
+
   let selectedGateType = null;
   let selectedNode = null;
   let selectedSourceNode = null;
