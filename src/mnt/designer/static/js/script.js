@@ -50,8 +50,9 @@ $(document).ready(() => {
           }
         },
         error: function (jqXHR, textStatus, errorThrown) {
+          valid_verilog = false;
           updateMessageArea(
-            "Error communicating with the server: " + errorThrown,
+            "Failed to save verilog: " + (jqXHR.responseJSON?.error || errorThrown),
             "danger",
           );
         },
@@ -669,7 +670,7 @@ $(document).ready(() => {
         error: (jqXHR, textStatus, errorThrown) => {
           $("#import-verilog-button").prop("disabled", false); // Re-enable button
           updateMessageArea(
-            "Error communicating with the server: " + errorThrown,
+            "Failed to import Verilog code: " + (jqXHR.responseJSON?.error || errorThrown),
             "danger",
           );
         },
@@ -2259,7 +2260,7 @@ $(document).ready(() => {
         error: (jqXHR, textStatus, errorThrown) => {
           $("#import-button").prop("disabled", false); // Re-enable button
           updateMessageArea(
-            "Error communicating with the server: " + errorThrown,
+            "Failed to import layout: " + (jqXHR.responseJSON?.error || errorThrown),
             "danger",
           );
         },

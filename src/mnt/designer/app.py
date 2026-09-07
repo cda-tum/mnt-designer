@@ -13,6 +13,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 from flask import Flask, cli, jsonify, render_template, request, send_file, session
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from mnt.pyfiction import (
     a_star,
@@ -54,6 +55,7 @@ except (ImportError, AttributeError):
 app = Flask(__name__)
 app.secret_key = os.environ.get("MNT_DESIGNER_SECRET_KEY") or secrets.token_hex(32)
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # Entire request, including multipart overhead.
 
 # Layouts and networks are process-local; use a single worker for hosted instances.
 layouts = {}
@@ -63,6 +65,11 @@ networks = {}
 
 # In-memory storage for user verilog
 verilogs = {}
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def request_too_large(_error):
+    return jsonify({"success": False, "error": "Request exceeds the upload size limit."}), 413
 
 
 @app.route("/")
@@ -99,6 +106,8 @@ def create_layout():
         # Resize the existing layout
         layout.resize((x, y, z))
         return jsonify({"success": True})
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -118,6 +127,8 @@ def reset_layout():
         layouts[session_id] = layout
 
         return jsonify({"success": True})
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -533,6 +544,8 @@ def place_gate():
             200,
         )
 
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         print(f"Error in place_gate: {e}")
         return jsonify({"success": False, "error": str(e)})
@@ -584,6 +597,8 @@ def delete_gate():
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": "Gate not found at the specified position."})
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -847,6 +862,8 @@ def connect_gates():
             ),
             200,
         )
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -930,6 +947,8 @@ def move_gate():
             ),
             200,
         )
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -1138,6 +1157,8 @@ def import_layout():
 
         return jsonify({"success": True})
 
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -1215,6 +1236,8 @@ def save_verilog_code():
         verilogs[session_id] = code
 
         return jsonify({"success": True})
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -1240,6 +1263,8 @@ def import_verilog_code():
         # Return the code to be displayed in the editor
         return jsonify({"success": True, "code": code})
 
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -1421,6 +1446,8 @@ def apply_gold():
                     "error": "No layout found with the specified parameters.",
                 }
             )
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -1495,6 +1522,8 @@ def apply_exact():
                     "error": "No layout found with the specified parameters.",
                 }
             )
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -1549,6 +1578,8 @@ def apply_optimization():
         layout_dimensions, gates = get_layout_information(layout)
 
         return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
+    except RequestEntityTooLarge:
+        raise
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 

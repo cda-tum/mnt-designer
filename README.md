@@ -85,6 +85,10 @@ The built-in server is intended for local use and binds to loopback by default. 
 server with `mnt.designer.app:app` and **one worker process**: layouts and logic networks are held in process-local memory,
 not shared between workers, and are lost when the server restarts. Export work you want to keep.
 
+Request-body reads are limited to 5 MiB, including multipart upload overhead, before native layout or Verilog parsing.
+Rejected imports and editor saves leave the current layout and code unchanged. Configure a matching request-size limit
+in your reverse proxy when hosting Designer, including for streamed requests without a content length.
+
 Designer generates a random session secret at startup. Set `MNT_DESIGNER_SECRET_KEY` to a securely generated secret if you
 need a stable signing key; this does not make the in-memory layouts persistent. See Flask's
 [deployment guidance](https://flask.palletsprojects.com/en/stable/deploying/) before exposing the application publicly.

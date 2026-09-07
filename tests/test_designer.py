@@ -97,6 +97,42 @@ def test_missing_layout_exports_and_session_isolation(placed):
     assert designer.app.secret_key != "your_secret_key"
 
 
+@pytest.mark.parametrize(
+    "route,extra_file",
+    [
+        ("/import_layout", False),
+        ("/import_verilog_code", False),
+        ("/save_verilog_code", False),
+        ("/import_verilog_code", True),
+    ],
+)
+def test_oversized_uploads_rejected_before_parsing(placed, monkeypatch, route, extra_file):
+    original = placed.get("/get_layout").get_json()
+    assert designer.app.config["MAX_CONTENT_LENGTH"] == 5 * 1024 * 1024
+    monkeypatch.setitem(designer.app.config, "MAX_CONTENT_LENGTH", 1024)
+
+    def unexpected_parse(*args, **kwargs):
+        pytest.fail("Oversized requests must be rejected before file streams or native parsing")
+
+    monkeypatch.setattr(designer.app.request_class, "_get_file_stream", unexpected_parse)
+    monkeypatch.setattr(designer, "read_cartesian_fgl_layout", unexpected_parse)
+    monkeypatch.setattr(designer, "read_technology_network", unexpected_parse)
+    if route == "/save_verilog_code":
+        response = placed.post(route, json={"code": "x" * 2048})
+    else:
+        filename = "example.fgl" if route == "/import_layout" else "example.v"
+        data = {"file": (io.BytesIO(VERILOG.encode() if extra_file else b"x" * 2048), filename)}
+        if extra_file:
+            data["ignored"] = (io.BytesIO(b"x" * 2048), "unused.bin")
+        response = placed.post(route, data=data)
+    assert response.status_code == 413
+    assert response.is_json
+    assert response.get_json()["success"] is False
+    assert response.get_json()["error"]
+    assert placed.get("/get_layout").get_json() == original
+    assert placed.get("/get_verilog_code").get_json()["code"] == VERILOG
+
+
 def test_import_verilog_and_safe_layout_edits(client):
     imported = client.post("/import_verilog_code", data={"file": (io.BytesIO(VERILOG.encode()), "example.v")})
     assert imported.get_json() == {"success": True, "code": VERILOG}
