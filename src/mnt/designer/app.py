@@ -1668,7 +1668,8 @@ def get_layout_information(layout):
 
 def start_server(host: str = "127.0.0.1", port: int = 5001, open_browser: bool = True) -> None:
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
-    url = f"http://{host}:{port}"
+    url_host = f"[{host}]" if ":" in host else host
+    url = f"http://{url_host}:{port}"
     print(
         f"Server is hosted at: {url}.",
         "To stop it, interrupt the process (e.g., via CTRL+C). \n",
