@@ -238,3 +238,15 @@ def test_cli(monkeypatch, capsys):
     monkeypatch.setattr(designer, "start_server", lambda **kwargs: calls.append(kwargs))
     designer.main(["--host", "127.0.0.1", "--port", "5053", "--no-browser"])
     assert calls == [{"host": "127.0.0.1", "port": 5053, "open_browser": False}]
+
+
+@pytest.mark.parametrize("host,url_host", [("127.0.0.1", "127.0.0.1"), ("localhost", "localhost"), ("::1", "[::1]")])
+def test_cli_browser_url_preserves_bind_host(monkeypatch, capsys, host, url_host):
+    opened = []
+    calls = []
+    monkeypatch.setattr(designer.webbrowser, "open", opened.append)
+    monkeypatch.setattr(designer.app, "run", lambda **kwargs: calls.append(kwargs))
+    designer.main(["--host", host, "--port", "5053"])
+    assert opened == [f"http://{url_host}:5053"]
+    assert opened[0] in capsys.readouterr().out
+    assert calls == [{"debug": False, "host": host, "port": 5053}]
