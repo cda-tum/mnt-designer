@@ -154,6 +154,11 @@ def reset_editor():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+def _gate_layer(layout, x, y):
+    # The editor projects both native layers onto one tile; an isolated upper wire is still editable.
+    return 1 if layout.z() > 0 and layout.is_empty_tile((x, y, 0)) else 0
+
+
 @app.route("/place_gate", methods=["POST"])
 def place_gate():
     try:
@@ -170,7 +175,7 @@ def place_gate():
         if not layout:
             return jsonify({"success": False, "error": "Layout not found."})
 
-        node = layout.get_node((x, y))
+        node = layout.get_node((x, y, _gate_layer(layout, x, y)))
         if node != 0:
             return jsonify({"success": False, "error": "Tile already has a gate."})
 
@@ -192,7 +197,7 @@ def place_gate():
                 )
             source_x = int(params["first"]["position"]["x"])
             source_y = int(params["first"]["position"]["y"])
-            source_z = 0
+            source_z = _gate_layer(layout, source_x, source_y)
             source_gate_type = params["first"]["gate_type"]
 
             if source_gate_type == "bufc":
@@ -302,7 +307,7 @@ def place_gate():
                 )
             first_x = int(params["first"]["position"]["x"])
             first_y = int(params["first"]["position"]["y"])
-            first_z = 0
+            first_z = _gate_layer(layout, first_x, first_y)
             first_source_gate_type = params["first"]["gate_type"]
             if first_source_gate_type == "bufc":
                 if first_x < x:
@@ -361,7 +366,7 @@ def place_gate():
                     return jsonify({"success": False, "error": "Something went wrong."})
             second_x = int(params["second"]["position"]["x"])
             second_y = int(params["second"]["position"]["y"])
-            second_z = 0
+            second_z = _gate_layer(layout, second_x, second_y)
             second_source_gate_type = params["second"]["gate_type"]
             if second_source_gate_type == "bufc":
                 if second_x < x:
@@ -567,37 +572,21 @@ def delete_gate():
         if not layout:
             return jsonify({"success": False, "error": "Layout not found."})
 
-        if not layout.is_empty_tile((x, y, 1)):
-            node = layout.get_node((x, y, 1))
-            if node:
-                # Find all gates that use this node as an input signal
-                outgoing_tiles = layout.fanouts((x, y, 1))
-                layout.clear_tile((x, y, 1))
-                layout.clear_obstructed_coordinate((x, y, 1))
-
-                # Update signals for dependent nodes
-                for outgoing_tile in outgoing_tiles:
-                    # Get the other input signals, if any
-                    incoming_tiles = layout.fanins(outgoing_tile)
-                    incoming_signals = [
-                        layout.make_signal(layout.get_node(inp)) for inp in incoming_tiles if inp != (x, y, 1)
-                    ]
-                    layout.move_node(layout.get_node(outgoing_tile), outgoing_tile, incoming_signals)
-        # Remove the gate from the layout
-        node = layout.get_node((x, y))
-        if node:
-            # Find all gates that use this node as an input signal
-            outgoing_tiles = layout.fanouts((x, y))
-            layout.clear_tile((x, y))
-            layout.clear_obstructed_coordinate((x, y))
-
-            # Update signals for dependent nodes
+        found = False
+        for z in (1, 0) if layout.z() > 0 else (0,):
+            tile = (x, y, z)
+            if layout.is_empty_tile(tile):
+                continue
+            found = True
+            outgoing_tiles = layout.fanouts(tile)
+            layout.clear_tile(tile)
+            layout.clear_obstructed_coordinate(tile)
             for outgoing_tile in outgoing_tiles:
-                # Get the other input signals, if any
                 incoming_tiles = layout.fanins(outgoing_tile)
-                incoming_signals = [layout.make_signal(layout.get_node(inp)) for inp in incoming_tiles if inp != (x, y)]
+                incoming_signals = [layout.make_signal(layout.get_node(inp)) for inp in incoming_tiles if inp != tile]
                 layout.move_node(layout.get_node(outgoing_tile), outgoing_tile, incoming_signals)
 
+        if found:
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": "Gate not found at the specified position."})
@@ -618,11 +607,11 @@ def connect_gates():
 
         source_x = int(data["source_x"])
         source_y = int(data["source_y"])
-        source_z = 0
+        source_z = _gate_layer(layout, source_x, source_y)
         source_gate_type = data["source_gate_type"]
         target_x = int(data["target_x"])
         target_y = int(data["target_y"])
-        target_z = 0
+        target_z = _gate_layer(layout, target_x, target_y)
         target_gate_type = data["target_gate_type"]
         find_path = data["find_path"]
 
@@ -884,7 +873,7 @@ def move_gate():
         source_x = int(data["source_x"])
         source_y = int(data["source_y"])
         source_gate_type = data["source_gate_type"]
-        source_z = 0 if source_gate_type not in ("bufc", "bufk") else 1
+        source_z = _gate_layer(layout, source_x, source_y) if source_gate_type not in ("bufc", "bufk") else 1
         source = (source_x, source_y, source_z)
         target_x = int(data["target_x"])
         target_y = int(data["target_y"])
@@ -1568,13 +1557,14 @@ def apply_optimization():
         if warnings != 0:
             for x in range(layout.x() + 1):
                 for y in range(layout.y() + 1):
-                    if layout.is_dead(layout.get_node((x, y))) and not layout.is_empty_tile((x, y)):
-                        return jsonify(
-                            {
-                                "success": False,
-                                "error": f"Layout has a dead node: ({x}, {y}). Fix it first before optimizing.",
-                            }
-                        )
+                    for z in range(layout.z() + 1):
+                        if not layout.is_empty_tile((x, y, z)) and layout.is_dead(layout.get_node((x, y, z))):
+                            return jsonify(
+                                {
+                                    "success": False,
+                                    "error": f"Layout has a dead node: ({x}, {y}, {z}). Fix it first before optimizing.",
+                                }
+                            )
 
         data = request.json
         max_gate_relocations = data.get("max_gate_relocations")
@@ -1623,7 +1613,8 @@ def get_layout_information(layout):
 
     for x in range(layout.x() + 1):
         for y in range(layout.y() + 1):
-            node = layout.get_node((x, y))
+            z = _gate_layer(layout, x, y)
+            node = layout.get_node((x, y, z))
             name = ""
             if node:
                 if layout.is_pi(node):
@@ -1641,7 +1632,7 @@ def get_layout_information(layout):
                 elif layout.is_wire(node):
                     gate_type = "buf"
                     above_gate = layout.above(layout.get_tile(node))
-                    if not layout.is_empty_tile(above_gate) and layout.z() == 1:
+                    if z == 0 and layout.z() == 1 and not layout.is_empty_tile(above_gate):
                         gate_type = _crossing_type(layout, x, y)
                     if layout.fanout_size(node) == 2:
                         gate_type = "fanout"
@@ -1670,7 +1661,7 @@ def get_layout_information(layout):
                     "name": name,
                 }
                 # Get fanins (source nodes)
-                fanins = layout.fanins((x, y))
+                fanins = layout.fanins((x, y, z))
                 for fin in fanins:
                     gate_info["connections"].append({"sourceX": fin.x, "sourceY": fin.y})
                 if gate_type in ("bufc", "bufk"):
