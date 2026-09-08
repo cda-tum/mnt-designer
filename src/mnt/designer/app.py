@@ -73,6 +73,11 @@ def request_too_large(_error):
     return jsonify({"success": False, "error": "Request exceeds the upload size limit."}), 413
 
 
+def _internal_error_response():
+    app.logger.exception("Unhandled request error")
+    return jsonify({"success": False, "error": "An internal error occurred."})
+
+
 @app.route("/")
 def index():
     # Assign a unique session ID if not already present
@@ -109,8 +114,8 @@ def create_layout():
         return jsonify({"success": True})
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/reset_layout", methods=["POST"])
@@ -130,8 +135,8 @@ def reset_layout():
         return jsonify({"success": True})
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/reset_editor", methods=["POST"])
@@ -150,8 +155,8 @@ def reset_editor():
 
         return jsonify({"success": True, "code": default_verilog_code}), 200
 
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    except Exception:
+        return _internal_error_response(), 500
 
 
 def _gate_layer(layout, x, y):
@@ -555,9 +560,8 @@ def place_gate():
 
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        print(f"Error in place_gate: {e}")
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/delete_gate", methods=["POST"])
@@ -592,8 +596,8 @@ def delete_gate():
             return jsonify({"success": False, "error": "Gate not found at the specified position."})
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/connect_gates", methods=["POST"])
@@ -857,8 +861,8 @@ def connect_gates():
         )
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/move_gate", methods=["POST"])
@@ -942,8 +946,8 @@ def move_gate():
         )
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/check_design_rules", methods=["POST"])
@@ -967,8 +971,8 @@ def check_design_rules():
             ),
             200,
         )
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 def strip_ansi_codes(text):
@@ -1033,8 +1037,8 @@ def check_equivalence():
             200,
         )
 
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    except Exception:
+        return _internal_error_response(), 500
 
 
 def check_equivalence_function(layout, network):
@@ -1075,8 +1079,8 @@ def export_layout():
 
         return _send_layout_file(layout, write_fgl_layout, "layout.fgl", "application/fgl")
 
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/export_dot_layout", methods=["GET"])
@@ -1090,8 +1094,8 @@ def export_dot_layout():
 
         return _send_layout_file(layout, write_dot_layout, "layout.dot", "application/dot")
 
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/export_qca_layout", methods=["GET"])
@@ -1107,8 +1111,8 @@ def export_qca_layout():
         params = write_qca_layout_svg_params()
         return _send_layout_file(cell_level_layout, write_qca_layout_svg, "layout_qca.svg", "image/svg+xml", params)
 
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/export_sidb_layout", methods=["GET"])
@@ -1127,8 +1131,8 @@ def export_sidb_layout():
         params.color_background = color_mode.DARK
         return _send_layout_file(cell_level_layout, write_sidb_layout_svg, "layout_sidb.svg", "image/svg+xml", params)
 
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/import_layout", methods=["POST"])
@@ -1152,8 +1156,8 @@ def import_layout():
 
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/get_layout", methods=["GET"])
@@ -1167,8 +1171,8 @@ def get_layout():
         # Extract layout data
         layout_dimensions, gates = get_layout_information(layout)
         return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/get_bounding_box", methods=["GET"])
@@ -1182,8 +1186,8 @@ def get_bounding_box():
         # Extract layout data
         _, max_coord = layout.bounding_box_2d()
         return jsonify({"success": True, "max_x": max_coord.x, "max_y": max_coord.y})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/get_verilog_code", methods=["GET"])
@@ -1204,9 +1208,8 @@ def get_verilog_code():
         # Return the Verilog code
         return jsonify({"success": True, "code": code}), 200
 
-    except Exception as e:
-        # Handle unexpected errors
-        return jsonify({"success": False, "error": str(e)}), 500
+    except Exception:
+        return _internal_error_response(), 500
 
 
 def _read_verilog(code):
@@ -1231,8 +1234,8 @@ def save_verilog_code():
         return jsonify({"success": True})
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/import_verilog_code", methods=["POST"])
@@ -1258,8 +1261,8 @@ def import_verilog_code():
 
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/apply_orthogonal", methods=["POST"])
@@ -1301,19 +1304,15 @@ def apply_orthogonal():
                         }
                     )
 
-        try:
-            # Apply the orthogonal function
-            layout = orthogonal(network)
-        except Exception as e:
-            return jsonify({"success": False, "error": str(e)})
+        layout = orthogonal(network)
 
         layouts[session_id] = cartesian_obstruction_layout(layout)  # Update the layout in the session
 
         layout_dimensions, gates = get_layout_information(layout)
 
         return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/apply_iosdn", methods=["POST"])
@@ -1356,8 +1355,8 @@ def apply_iosdn():
                     )
 
         return jsonify({"success": False, "error": "Input-ordering SDN not available in pyfiction yet."})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/apply_gold", methods=["POST"])
@@ -1441,8 +1440,8 @@ def apply_gold():
             )
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/apply_exact", methods=["POST"])
@@ -1527,8 +1526,8 @@ def apply_exact():
             )
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 @app.route("/apply_optimization", methods=["POST"])
@@ -1584,8 +1583,8 @@ def apply_optimization():
         return jsonify({"success": True, "layoutDimensions": layout_dimensions, "gates": gates})
     except RequestEntityTooLarge:
         raise
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+    except Exception:
+        return _internal_error_response()
 
 
 def _crossing_type(layout, x, y):
