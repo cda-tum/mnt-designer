@@ -41,6 +41,24 @@ def post(client, route, payload=None, *, success=True):
     return result
 
 
+def test_unexpected_errors_are_logged_without_leaking(client, monkeypatch, caplog):
+    detail = "sensitive implementation detail"
+
+    class FailingStore:
+        @staticmethod
+        def get(_key):
+            raise RuntimeError(detail)
+
+    monkeypatch.setattr(designer, "verilogs", FailingStore())
+    with caplog.at_level("ERROR", logger=designer.app.logger.name):
+        response = client.get("/get_verilog_code")
+
+    assert response.status_code == 500
+    assert response.get_json() == {"success": False, "error": "An internal error occurred."}
+    assert detail not in response.get_data(as_text=True)
+    assert detail in caplog.text
+
+
 @pytest.fixture
 def placed(client):
     post(client, "/save_verilog_code", {"code": VERILOG})
