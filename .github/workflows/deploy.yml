@@ -26,6 +26,8 @@ jobs:
           persist-credentials: false
       - name: Run pre-commit
         run: pipx run pre-commit run --all-files --show-diff-on-failure
+      - name: Test frontend handlers
+        run: node tests/frontend_smoke.cjs
 
   build_wheel:
     name: Build wheel

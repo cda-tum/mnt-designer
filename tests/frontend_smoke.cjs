@@ -23,31 +23,82 @@ const importCode = source.slice(
   source.indexOf("  // Trigger file input when the import verilog button is clicked"),
   source.indexOf("  // Gate selection"),
 );
-const handlers = {}, pending = [], timers = new Map(), statuses = {};
-let code = "", changed = () => {}, timerId = 0, readOnly = false;
-const editor = {
-  session: { setMode() {}, on(_event, callback) { changed = callback; } },
-  setTheme() {}, setOptions() {}, focus() {},
-  getReadOnly() { return readOnly; }, setReadOnly(value) { readOnly = value; },
-  getValue() { return code; }, setValue(value) { code = value; changed(); },
-};
-const dollar = (selector) => ({
-  on(event, callback) { handlers[selector + ":" + event] = callback; return this; },
-  text(value) { statuses[selector] = value; return this; },
-  attr() { return this; }, prop() { return this; },
-});
-dollar.ajax = (options) => pending.push(options);
-const context = {
-  ace: { edit: () => editor }, $: dollar,
-  document: { getElementById: () => ({ requestSubmit() {} }) },
-  FormData: class { append() {} }, confirm: () => false, updateMessageArea() {},
-  setTimeout(callback) { timers.set(++timerId, callback); return timerId; },
-  clearTimeout(id) { timers.delete(id); },
-};
-vm.createContext(context);
-vm.runInContext(editorCode + importCode + "\nglobalThis.subject = { replaceEditorCode, get valid() { return valid_verilog; } };", context);
-const flush = () => { const queued = [...timers.values()]; timers.clear(); queued.forEach((fn) => fn()); };
-const complete = (request, data = { success: true }) => { request.success(data); request.complete(); };
+const loadCode = source.slice(source.indexOf("  function loadEditor()"), source.indexOf("  function placeGateLocally"));
+function createEditor() {
+  const handlers = {}, pending = [], timers = new Map(), statuses = {};
+  let code = "", changed = () => {}, timerId = 0, readOnly = false;
+  const editor = {
+    session: { setMode() {}, on(_event, callback) { changed = callback; } },
+    setTheme() {}, setOptions() {}, focus() {},
+    getReadOnly() { return readOnly; }, setReadOnly(value) { readOnly = value; },
+    getValue() { return code; }, setValue(value) { code = value; changed(); },
+  };
+  const dollar = (selector) => ({
+    on(event, callback) { handlers[selector + ":" + event] = callback; return this; },
+    text(value) { statuses[selector] = value; return this; },
+    attr() { return this; }, prop() { return this; },
+  });
+  dollar.ajax = (options) => pending.push(options);
+  const context = {
+    ace: { edit: () => editor }, $: dollar,
+    document: { getElementById: () => ({ requestSubmit() {} }) },
+    FormData: class { append() {} }, confirm: () => false, updateMessageArea() {},
+    setTimeout(callback) { timers.set(++timerId, callback); return timerId; },
+    clearTimeout(id) { timers.delete(id); },
+  };
+  vm.createContext(context);
+  vm.runInContext(editorCode + importCode + loadCode + "\nglobalThis.subject = { replaceEditorCode, loadEditor, get valid() { return valid_verilog; } };", context);
+  const flush = () => { const queued = [...timers.values()]; timers.clear(); queued.forEach((fn) => fn()); };
+  const complete = (request, data = { success: true }) => { request.success(data); request.complete?.(); };
+  return { context, editor, pending, handlers, flush, complete, statuses };
+}
+
+for (const httpError of [false, true]) {
+  for (const initialLoadDuringImport of [false, true]) {
+    const { context, editor, pending, handlers, flush, complete } = createEditor();
+    const saved = { success: true, code: "saved circuit" };
+    context.subject.loadEditor();
+    handlers["#import-verilog-file-input:change"].call({ files: [{}], value: "invalid.v" });
+    if (initialLoadDuringImport) complete(pending[0], saved);
+    if (httpError) {
+      pending[1].error({ responseJSON: { error: "File too large" } }, "error", "HTTP 413");
+      pending[1].complete();
+    } else {
+      complete(pending[1], { success: false, error: "Invalid Verilog" });
+    }
+    flush();
+    assert.equal(pending[2].url, "/get_verilog_code", "failed import must restore an untouched editor, not reset the saved circuit");
+    complete(pending[2], saved);
+    if (!initialLoadDuringImport) complete(pending[0], { success: true, code: "stale circuit" });
+    assert.equal(editor.getValue(), saved.code);
+    assert.equal(context.subject.valid, true);
+    assert.equal(pending.filter((request) => request.type === "POST").length, 1, "recovery must not write to the server");
+  }
+}
+
+{
+  const { context, editor, pending, handlers, complete } = createEditor();
+  context.subject.loadEditor();
+  handlers["#import-verilog-file-input:change"].call({ files: [{}], value: "invalid.v" });
+  complete(pending[1], { success: false, error: "Invalid Verilog" });
+  editor.setValue("new local circuit");
+  complete(pending[2], { success: true, code: "saved circuit" });
+  complete(pending[0], { success: true, code: "saved circuit" });
+  assert.equal(editor.getValue(), "new local circuit", "recovery must not replace edits made after import failure");
+}
+
+{
+  const { context, editor, pending, handlers, complete } = createEditor();
+  context.subject.loadEditor();
+  handlers["#import-verilog-file-input:change"].call({ files: [{}], value: "valid.v" });
+  complete(pending[1], { success: true, code: "imported circuit" });
+  complete(pending[0], { success: true, code: "stale circuit" });
+  assert.equal(editor.getValue(), "imported circuit", "successful import must win over the initial load");
+  assert.equal(pending.length, 2, "successful import must not trigger a recovery request");
+}
+console.log("PASS: failed imports preserve saved circuits during initial loading, and stale loads cannot replace edits/imports");
+
+const { context, editor, pending, handlers, flush, complete, statuses } = createEditor();
 
 context.subject.replaceEditorCode("first");
 assert.equal(context.subject.valid, false);
@@ -65,7 +116,7 @@ complete(pending[1]);
 assert.equal(context.subject.valid, true);
 assert.equal(statuses["#editor-status"], "Saved");
 handlers["#load-example-button:click"]();
-assert.equal(code, "second", "declining example replacement must preserve code");
+assert.equal(editor.getValue(), "second", "declining example replacement must preserve code");
 
 context.subject.replaceEditorCode("");
 handlers["#import-verilog-file-input:change"].call({ files: [{}], value: "invalid.v" });
@@ -75,7 +126,7 @@ flush();
 assert.equal(pending[3].url, "/reset_editor", "failed import must not discard a pending empty-editor reset");
 complete(pending[3]);
 assert.equal(context.subject.valid, false);
-assert.equal(code, "");
+assert.equal(editor.getValue(), "");
 console.log("PASS: serialized saves, immediate invalidation, stale replies, confirmation, and empty-editor recovery");
 
 const exportCode = source.slice(source.indexOf("  // Export Layout"), source.indexOf("  // Trigger file input when the import button is clicked"));
@@ -98,7 +149,7 @@ context.subject.replaceEditorCode("unsaved circuit");
     assert.equal(statuses.type, "danger");
     assert.match(statuses.message, jsonError ? /Unsupported layout/ : /HTTP 500/);
     assert.equal(context.window.location.href, "/designer");
-    assert.equal(code, "unsaved circuit", "failed export must preserve editor contents");
+    assert.equal(editor.getValue(), "unsaved circuit", "failed export must preserve editor contents");
   }
   console.log("PASS: JSON and HTTP export failures preserve the page/editor and restore the export button");
 })().catch((error) => { console.error(error); process.exitCode = 1; });

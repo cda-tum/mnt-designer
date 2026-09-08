@@ -802,7 +802,12 @@ endmodule
           $("#import-verilog-button, #load-example-button, #reset-editor-button").prop("disabled", false);
           this.value = "";
           if (!valid_verilog) {
-            editorSaveTimer = setTimeout(saveVerilog, 700);
+            // Before any load or edit, the empty editor is not an intentional clear.
+            if (editorRevision === 0) {
+              loadEditor();
+            } else {
+              editorSaveTimer = setTimeout(saveVerilog, 700);
+            }
           }
         },
       });
