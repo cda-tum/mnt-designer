@@ -372,6 +372,8 @@
                   id="exact-upper-bound-x"
                   placeholder="Enter upper bound X dimension"
                   min="1"
+                  max="65535"
+                  step="1"
                   aria-describedby="exact-upper-bound-x-help"
                 />
                 <small
@@ -393,6 +395,8 @@
                   id="exact-upper-bound-y"
                   placeholder="Enter upper bound Y dimension"
                   min="1"
+                  max="65535"
+                  step="1"
                   aria-describedby="exact-upper-bound-y-help"
                 />
                 <small
@@ -456,7 +460,9 @@
                   id="exact-num-threads"
                   placeholder="Enter number of threads"
                   min="1"
+                  step="1"
                   value="1"
+                  required
                   aria-describedby="exact-num-threads-help"
                 />
                 <small
@@ -730,7 +736,10 @@
                   id="exact-timeout"
                   placeholder="Enter timeout in milliseconds"
                   min="1"
+                  max="4294967295"
+                  step="1"
                   value="4294967"
+                  required
                   aria-describedby="exact-timeout-help"
                 />
                 <small id="exact-timeout-help" class="form-text text-muted">
@@ -740,6 +749,7 @@
             </form>
           </div>
           <div class="modal-footer">
+            <div class="modal-status alert w-100 d-none" role="alert"></div>
             <button
               type="button"
               class="btn btn-secondary"
@@ -876,7 +886,9 @@
                   placeholder="Enter value (1-10000)"
                   min="1"
                   max="10000"
+                  step="1"
                   value="1000"
+                  required
                   aria-describedby="gold-timeout-help"
                 />
                 <small id="gold-timeout-help" class="form-text text-muted">
@@ -897,7 +909,9 @@
                   placeholder="Enter value (1-100)"
                   min="1"
                   max="100"
+                  step="1"
                   value="4"
+                  required
                   aria-describedby="gold-num-vertex-expansions-help"
                 />
                 <small
@@ -991,6 +1005,7 @@
             </form>
           </div>
           <div class="modal-footer">
+            <div class="modal-status alert w-100 d-none" role="alert"></div>
             <button
               type="button"
               class="btn btn-secondary"
@@ -1075,6 +1090,7 @@
                   id="custom-max-gate-relocations"
                   placeholder="Enter custom value (0 to max number of tiles)"
                   min="0"
+                  step="1"
                   aria-describedby="custom-relocations-help"
                 />
                 <small
@@ -1183,7 +1199,9 @@
                   placeholder="Enter value (1-10000)"
                   min="1"
                   max="10000"
+                  step="1"
                   value="1000"
+                  required
                   aria-describedby="optimization-timeout-help"
                 />
                 <small
@@ -1197,6 +1215,7 @@
             </form>
           </div>
           <div class="modal-footer">
+            <div class="modal-status alert w-100 d-none" role="alert"></div>
             <button
               type="button"
               class="btn btn-secondary"

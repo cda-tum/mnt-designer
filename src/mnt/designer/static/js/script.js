@@ -452,6 +452,7 @@ endmodule
 
   // Gold Button Click Event (opens modal automatically due to data-bs-toggle)
   $("#apply-gold").on("click", function () {
+    if (!document.getElementById("gold-params-form").reportValidity()) return;
     // Disable the apply button to prevent multiple clicks
     $("#apply-gold").prop("disabled", true);
     updateMessageArea("Applying gold...", "info");
@@ -471,13 +472,10 @@ endmodule
     const mode = $("input[name='gold-mode']:checked").val();
 
     // Timeout (ms)
-    const timeout = parseInt($("#gold-timeout").val(), 10);
+    const timeout = Number($("#gold-timeout").val());
 
     // Number of Vertex Expansions
-    const num_vertex_expansions = parseInt(
-      $("#gold-num-vertex-expansions").val(),
-      10,
-    );
+    const num_vertex_expansions = Number($("#gold-num-vertex-expansions").val());
 
     // Planar Option
     const planar = $("input[name='gold-planar']:checked").val() === "true";
@@ -488,23 +486,6 @@ endmodule
     // Enable Multithreading
     const enable_multithreading =
       $("input[name='gold-enable-multithreading']:checked").val() === "true";
-
-    // Validate parameters (optional)
-    if (
-      isNaN(timeout) ||
-      timeout < 1 ||
-      timeout > 10000 ||
-      isNaN(num_vertex_expansions) ||
-      num_vertex_expansions < 1 ||
-      num_vertex_expansions > 100
-    ) {
-      updateMessageArea(
-        "Invalid input. Please check timeout and number of vertex expansions.",
-        "danger",
-      );
-      $("#apply-gold").prop("disabled", false);
-      return;
-    }
 
     // Create a data object with parameters to be sent
     const requestData = {
@@ -540,7 +521,7 @@ endmodule
       error: function (jqXHR, textStatus, errorThrown) {
         $("#apply-gold").prop("disabled", false);
         updateMessageArea(
-          "Error applying gold algorithm: " + errorThrown,
+          "Error applying gold algorithm: " + (jqXHR.responseJSON?.error || errorThrown),
           "danger",
         );
       },
@@ -549,6 +530,7 @@ endmodule
 
   // Exact Algorithm Apply Button Click Event
   $("#apply-exact").on("click", function () {
+    if (!document.getElementById("exact-params-form").reportValidity()) return;
     // Disable the apply button to prevent multiple clicks
     $("#apply-exact").prop("disabled", true);
     updateMessageArea("Applying exact algorithm...", "info");
@@ -561,17 +543,17 @@ endmodule
 
     // Collect the parameter values from the modal form
     // Upper Bound X
-    const upper_bound_x = parseInt($("#exact-upper-bound-x").val(), 10) || 1000;
+    const upper_bound_x = Number($("#exact-upper-bound-x").val() || 1000);
 
     // Upper Bound Y
-    const upper_bound_y = parseInt($("#exact-upper-bound-y").val(), 10) || 1000;
+    const upper_bound_y = Number($("#exact-upper-bound-y").val() || 1000);
 
     // Fixed Size
     const fixed_size =
       $("input[name='exact-fixed-size']:checked").val() === "true";
 
     // Number of Threads
-    const num_threads = parseInt($("#exact-num-threads").val(), 10) || 1;
+    const num_threads = Number($("#exact-num-threads").val());
 
     // Crossings
     const crossings =
@@ -598,7 +580,7 @@ endmodule
       $("input[name='exact-minimize-crossings']:checked").val() === "true";
 
     // Timeout
-    const timeout = parseInt($("#exact-timeout").val(), 10) || 4294967;
+    const timeout = Number($("#exact-timeout").val());
 
     // Create a data object with parameters to be sent
     const requestData = {
@@ -638,7 +620,7 @@ endmodule
       error: function (jqXHR, textStatus, errorThrown) {
         $("#apply-exact").prop("disabled", false);
         updateMessageArea(
-          "Error applying exact algorithm: " + errorThrown,
+          "Error applying exact algorithm: " + (jqXHR.responseJSON?.error || errorThrown),
           "danger",
         );
       },
@@ -664,6 +646,7 @@ endmodule
 
   // Event listener for the "Optimize" button
   $("#apply-optimization").on("click", function () {
+    if (!document.getElementById("optimization-params-form").reportValidity()) return;
     // Disable the apply button to prevent multiple clicks
     $("#apply-optimization").prop("disabled", true).text("Applying...");
 
@@ -673,8 +656,7 @@ endmodule
     ).val();
     let customRelocations = null;
     if (maxGateRelocations === "custom") {
-      customRelocations =
-        parseInt($("#custom-max-gate-relocations").val(), 10) || 0;
+      customRelocations = Number($("#custom-max-gate-relocations").val());
     }
 
     // Optimize PO Positions Only
@@ -686,29 +668,7 @@ endmodule
       $("input[name='planar-optimization']:checked").val() === "true";
 
     // Timeout
-    const timeout = parseInt($("#optimization-timeout").val(), 10);
-
-    // Validate Timeout
-    if (isNaN(timeout) || timeout < 1 || timeout > 10000) {
-      updateMessageArea(
-        "Invalid timeout value. Please enter a number between 1 and 10000.",
-        "danger",
-      );
-      $("#apply-optimization").prop("disabled", false).text("Optimize");
-      return;
-    }
-
-    // If "Custom" is selected, ensure custom relocations is a valid number
-    if (maxGateRelocations === "custom") {
-      if (isNaN(customRelocations) || customRelocations < 0) {
-        updateMessageArea(
-          "Invalid custom relocations value. Please enter a non-negative number.",
-          "danger",
-        );
-        $("#apply-optimization").prop("disabled", false).text("Optimize");
-        return;
-      }
-    }
+    const timeout = Number($("#optimization-timeout").val());
 
     // Create a data object with parameters to be sent
     const requestData = {
@@ -740,7 +700,7 @@ endmodule
       },
       error: function (jqXHR, textStatus, errorThrown) {
         $("#apply-optimization").prop("disabled", false).text("Optimize");
-        updateMessageArea("Error optimizing layout: " + errorThrown, "danger");
+        updateMessageArea("Error optimizing layout: " + (jqXHR.responseJSON?.error || errorThrown), "danger");
       },
     });
   });
@@ -865,11 +825,15 @@ endmodule
 
   // Message area update function
   function updateMessageArea(message, type = "info") {
-    $("#message-area")
-      .removeClass("alert-info alert-success alert-warning alert-danger alert-secondary")
+    $("#message-area, .modal.show .modal-status")
+      .removeClass("d-none alert-info alert-success alert-warning alert-danger alert-secondary")
       .addClass(`alert alert-${type}`)
       .text(message);
   }
+
+  $(".modal").on("show.bs.modal", function () {
+    $(this).find(".modal-status").addClass("d-none").text("");
+  });
 
   // Handle layout creation with bounding box check
   $("#layout-form").on("submit", function (event) {
@@ -2283,7 +2247,7 @@ endmodule
       },
       error: (jqXHR, textStatus, errorThrown) => {
         updateMessageArea(
-          "Error communicating with the server: " + errorThrown,
+          "Failed to check equivalence: " + (jqXHR.responseJSON?.error || errorThrown),
           "danger",
         );
       },

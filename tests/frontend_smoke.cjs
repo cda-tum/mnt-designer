@@ -129,6 +129,62 @@ assert.equal(context.subject.valid, false);
 assert.equal(editor.getValue(), "");
 console.log("PASS: serialized saves, immediate invalidation, stale replies, confirmation, and empty-editor recovery");
 
+// Use the actual algorithm callbacks: invalid forms must stop before any request.
+for (const [name, start, end] of [
+  ["gold", "  // Gold Button Click Event", "  // Exact Algorithm Apply Button"],
+  ["exact", "  // Exact Algorithm Apply Button", "  function toggleCustomRelocations"],
+  ["optimization", '  // Event listener for the "Optimize" button', "  // Trigger file input when the import verilog button"],
+]) {
+  let formValid = false, callback, request;
+  const values = {
+    "#exact-num-threads": "1", "#exact-timeout": "1000",
+    "#gold-timeout": "1000", "#gold-num-vertex-expansions": "4", "#optimization-timeout": "1000",
+  };
+  const dollar = (selector) => ({
+    on(_event, handler) { callback = handler; },
+    prop() { return this; }, text() { return this; },
+    val() { return values[selector] ?? ""; },
+  });
+  dollar.ajax = (options) => { request = options; };
+  vm.runInNewContext(source.slice(source.indexOf(start), source.indexOf(end)), {
+    $: dollar, valid_verilog: true, updateMessageArea() {},
+    document: { getElementById(id) { assert.equal(id, `${name}-params-form`); return { reportValidity: () => formValid }; } },
+  });
+  callback();
+  assert.equal(request, undefined, `${name} must not submit an invalid form`);
+  formValid = true;
+  callback();
+  assert.equal(request.url, `/apply_${name}`);
+  if (name === "exact") {
+    const params = JSON.parse(request.data);
+    assert.equal(params.upper_bound_x, 1000, "only optional blank bounds use the default");
+    assert.equal(params.upper_bound_y, 1000);
+    assert.equal(params.timeout, 1000, "valid timeouts must be preserved");
+  }
+}
+console.log("PASS: algorithm forms validate before submitting and preserve optional Exact defaults");
+
+{
+  let selected, message, errorHandler;
+  const dollar = (selector) => {
+    selected = selector;
+    return { removeClass() { return this; }, addClass() { return this; }, text(value) { message = value; }, on() {} };
+  };
+  dollar.ajax = (options) => { errorHandler = options.error; };
+  const feedback = { $: dollar };
+  vm.createContext(feedback);
+  vm.runInContext(source.slice(source.indexOf("  // Message area update function"), source.indexOf("  // Handle layout creation")), feedback);
+  vm.runInContext('updateMessageArea("Visible failure", "danger")', feedback);
+  assert.ok(selected.includes(".modal.show .modal-status"), "feedback must include the open dialog");
+  assert.equal(message, "Visible failure");
+  feedback.$ = Object.assign(() => ({ on(_event, callback) { callback(); } }), { ajax: dollar.ajax });
+  feedback.updateMessageArea = (value) => { message = value; };
+  vm.runInContext(source.slice(source.indexOf("  // Check Equivalence"), source.indexOf('  $("#equivalence-area .close-equivalence")')), feedback);
+  errorHandler({ responseJSON: { error: "Network not found." } }, "error", "NOT FOUND");
+  assert.equal(message, "Failed to check equivalence: Network not found.");
+}
+console.log("PASS: errors reach the visible dialog and preserve backend explanations");
+
 const exportCode = source.slice(source.indexOf("  // Export Layout"), source.indexOf("  // Trigger file input when the import button is clicked"));
 context.window = { location: { href: "/designer" } };
 context.updateMessageArea = (message, type) => { statuses.message = message; statuses.type = type; };

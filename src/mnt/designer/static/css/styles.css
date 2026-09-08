@@ -212,7 +212,7 @@ kbd { color: #515a68; background: #f0f2f6; border: 1px solid #dde2ea; border-rad
 }
 @media (max-width: 575px) {
   .header-inner, .designer-shell { width: calc(100% - 28px); }
-  .header-inner { min-height: 69px; gap: 10px; }
+  .header-inner { min-height: 69px; flex-wrap: wrap; gap: 10px; padding-block: 10px; }
   .app-brand { gap: 10px; }
   .app-brand img { width: 47px; height: 26px; }
   .brand-copy { padding-left: 10px; }
