@@ -1,8 +1,15 @@
 $(document).ready(() => {
+  // Do not let Ace retry a blocked startup module through its unchecked lazy loader.
+  if (typeof ace === "undefined" || !ace.require("ace/theme/chrome") || !ace.require("ace/mode/verilog")) {
+    updateMessageArea("The code editor could not be loaded securely. Please reload the page.", "danger");
+    return;
+  }
+
   let selectedGateType = null;
   let selectedNode = null;
   let selectedSourceNode = null;
   let selectedSourceNode2 = null;
+  let editingLayout = false;
   let cy = null;
   let valid_verilog = false;
   let layoutDimensions = { x: 0, y: 0 };
@@ -14,51 +21,114 @@ $(document).ready(() => {
   };
 
   // Initialize Ace Editor
-  let editor = ace.edit("editor-container");
-  editor.setTheme("ace/theme/monokai");
+  const editor = ace.edit("editor-container");
+  editor.setTheme("ace/theme/chrome");
   editor.session.setMode("ace/mode/verilog");
+  editor.setOptions({
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    fontSize: 13,
+    showPrintMargin: false,
+  });
+  let editorRevision = 0;
+  let editorSaveTimer;
+  let savingVerilog = false;
+  let pendingVerilogSave = false;
+  let replacingEditorCode = false;
 
-  // Debounce function to limit the rate of AJAX calls
-  function debounce(func, wait) {
-    let timeout;
-    return function (...args) {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), wait);
-    };
+  function setEditorStatus(message, state) {
+    $("#editor-status").text(message).attr("data-state", state);
   }
 
-  // Save code to backend on change with debounce
-  editor.session.on(
-    "change",
-    debounce(function () {
-      let code = editor.getValue();
-      $.ajax({
-        url: "/save_verilog_code",
-        type: "POST",
-        contentType: "application/json",
-        data: JSON.stringify({ code: code }),
-        success: function (data) {
-          if (!data.success) {
-            updateMessageArea(
-              "Failed to save verilog: " + data.error,
-              "danger",
-            );
-            valid_verilog = false;
-          } else {
-            updateMessageArea("Updated verilog", "info");
-            valid_verilog = true;
-          }
-        },
-        error: function (jqXHR, textStatus, errorThrown) {
-          updateMessageArea(
-            "Error communicating with the server: " + errorThrown,
-            "danger",
-          );
-        },
-      });
-    }, 1000),
-  );
+  function saveVerilog() {
+    clearTimeout(editorSaveTimer);
+    if (savingVerilog) {
+      pendingVerilogSave = true;
+      return;
+    }
+    savingVerilog = true;
+    const revision = editorRevision;
+    const code = editor.getValue();
+    setEditorStatus("Saving…", "saving");
+    $.ajax({
+      url: code.trim() ? "/save_verilog_code" : "/reset_editor",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({ code: code }),
+      success: function (data) {
+        if (revision !== editorRevision) return;
+        valid_verilog = data.success && Boolean(code.trim());
+        setEditorStatus(data.success ? "Saved" : "Check Verilog", data.success ? "saved" : "error");
+        if (!data.success) {
+          updateMessageArea("Failed to save Verilog: " + data.error, "danger");
+        }
+      },
+      error: function (jqXHR, textStatus, errorThrown) {
+        if (revision !== editorRevision) return;
+        valid_verilog = false;
+        setEditorStatus("Save failed", "error");
+        updateMessageArea(
+          "Failed to save Verilog: " + (jqXHR.responseJSON?.error || errorThrown),
+          "danger",
+        );
+      },
+      complete: function () {
+        savingVerilog = false;
+        if (pendingVerilogSave) {
+          pendingVerilogSave = false;
+          saveVerilog();
+        }
+      },
+    });
+  }
 
+  function editorChanged() {
+    if (replacingEditorCode) return;
+    editorRevision += 1;
+    valid_verilog = false;
+    setEditorStatus("Unsaved changes", "modified");
+    clearTimeout(editorSaveTimer);
+    editorSaveTimer = setTimeout(saveVerilog, 700);
+  }
+  editor.session.on("change", editorChanged);
+
+  function replaceEditorCode(code, saved = false) {
+    clearTimeout(editorSaveTimer);
+    pendingVerilogSave = false;
+    replacingEditorCode = true;
+    editor.setValue(code, -1);
+    replacingEditorCode = false;
+    if (saved) {
+      editorRevision += 1;
+      valid_verilog = Boolean(code.trim());
+      setEditorStatus(code.trim() ? "Saved" : "Ready", code.trim() ? "saved" : "empty");
+    } else {
+      editorChanged();
+    }
+  }
+
+  $("#load-example-button").on("click", function () {
+    if (editor.getReadOnly()) return;
+    if (editor.getValue().trim() && !confirm("Replace the current Verilog code with the half-adder example?")) return;
+    // Elementary gates are intentional: direct XOR gates cannot be mapped by the QCA library.
+    replaceEditorCode(`module top(a, b, sum, carry);
+input a, b;
+output sum, carry;
+wire na, nb, first, second;
+assign na = ~a;
+assign nb = ~b;
+assign first = a & nb;
+assign second = na & b;
+assign sum = first | second;
+assign carry = a & b;
+endmodule
+`);
+    editor.focus();
+    updateMessageArea("Half-adder example loaded. Choose a layout algorithm after it is saved.", "info");
+  });
+
+  $("#empty-create-button").on("click", function () {
+    document.getElementById("layout-form").requestSubmit();
+  });
   // Initialize Cytoscape instance
   function initializeCytoscape() {
     cy = cytoscape({
@@ -70,29 +140,35 @@ $(document).ready(() => {
             label: "data(label)",
             "text-valign": "center",
             "text-halign": "center",
-            color: "#000",
-            "background-color": "data(color)",
+            color: "#17202b",
+            "background-color": "data(backgroundColor)",
             width: "50px",
             height: "50px",
             shape: "rectangle",
             "font-size": "12px",
-            "border-width": 2,
-            "border-color": "#000",
+            "font-family": "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+            "border-width": 1,
+            "border-color": "#77808c",
             "text-wrap": "wrap",
             "text-max-width": "45px",
             // Ensure the gate label is centered
             "text-margin-y": "0px",
             // Allow background image (tile number) to display
+            "background-image": "data(image)",
             "background-fit": "contain",
-            "background-clip": "node",
+            "background-width": "100%",
+            "background-height": "100%",
+            "background-position": "bottom right",
+            "background-repeat": "no-repeat",
+            "background-clip": "none",
           },
         },
         {
           selector: "edge",
           style: {
             width: 2,
-            "line-color": "#555",
-            "target-arrow-color": "#555",
+            "line-color": "#596779",
+            "target-arrow-color": "#596779",
             "target-arrow-shape": "triangle",
             "curve-style": "bezier",
           },
@@ -100,8 +176,8 @@ $(document).ready(() => {
         {
           selector: ".highlighted",
           style: {
-            "border-color": "#dc3545",
-            "border-width": 4,
+            "border-color": "#1473e6",
+            "border-width": 3,
           },
         },
       ],
@@ -120,9 +196,20 @@ $(document).ready(() => {
 
     // Disable node dragging
     cy.nodes().ungrabify();
+    cy.on("tapstart", () => document.getElementById("cy").focus({ preventScroll: true }));
+
+    let statusFrame;
+    cy.on("add remove data", "node", () => {
+      if (statusFrame) return;
+      statusFrame = requestAnimationFrame(() => {
+        statusFrame = null;
+        updateLayoutStatus();
+      });
+    });
 
     // Node click handler
     cy.on("tap", "node", (evt) => {
+      if (editingLayout) return;
       const node = evt.target;
       if (!selectedGateType) {
         updateMessageArea("Please select a gate or action first.", "warning");
@@ -163,6 +250,22 @@ $(document).ready(() => {
 
   // Initialize Cytoscape
   initializeCytoscape();
+  updateLayoutStatus();
+  const resizeObserver = new ResizeObserver((entries) => {
+    if (entries.some((entry) => entry.target.id === "cy")) {
+      cy.resize();
+      if (cy.nodes().length) cy.fit(cy.elements(), 32);
+    }
+    editor.resize();
+  });
+  resizeObserver.observe(document.getElementById("cy"));
+  resizeObserver.observe(document.getElementById("editor-container"));
+
+  function updateLayoutStatus() {
+    $("#layout-size").text(layoutDimensions.x ? `${layoutDimensions.x} × ${layoutDimensions.y}` : "—");
+    $("#layout-gates").text(`${cy.nodes("[?hasGate]").length} occupied tiles`);
+    $("#canvas-empty").prop("hidden", cy.nodes().length > 0);
+  }
 
   // Load the layout from the backend
   loadLayout();
@@ -171,45 +274,46 @@ $(document).ready(() => {
   loadEditor();
 
   function updateLayout(layoutDimensions, gates) {
-    // Clear existing elements
-    cy.elements().remove();
+    // Apply styles once, after all gates and connections are in place.
+    cy.batch(() => {
+      cy.elements().remove();
+      createGridNodes(layoutDimensions.x, layoutDimensions.y);
 
-    // Recreate the grid with new dimensions
-    createGridNodes(layoutDimensions.x, layoutDimensions.y);
-
-    // Place gates and connections based on the new layout data
-    gates.forEach((gate) => {
-      // Place the gate
-      placeGateLocally(gate.x, gate.y, gate.type, gate.name);
-
-      // Handle connections (edges)
-      gate.connections.forEach((conn) => {
-        cy.add({
-          group: "edges",
-          data: {
-            id: `edge-node-${conn.sourceX}-${conn.sourceY}-node-${gate.x}-${gate.y}`,
-            source: `node-${conn.sourceX}-${conn.sourceY}`,
-            target: `node-${gate.x}-${gate.y}`,
-          },
+      gates.forEach((gate) => {
+        placeGateLocally(gate.x, gate.y, gate.type, gate.name);
+        gate.connections.forEach((conn) => {
+          cy.add({
+            group: "edges",
+            data: {
+              id: `edge-node-${conn.sourceX}-${conn.sourceY}-node-${gate.x}-${gate.y}`,
+              source: `node-${conn.sourceX}-${conn.sourceY}`,
+              target: `node-${gate.x}-${gate.y}`,
+            },
+          });
         });
       });
-    });
 
-    // Update gate labels after loading
-    updateGateLabels();
+      // Empty tiles already have their clock labels from createGridNodes.
+      cy.nodes("[?hasGate]").forEach(updateGateLabel);
+    });
 
     // **Update the form input fields with the current layout dimensions**
     $("#x-dimension").val(layoutDimensions.x);
     $("#y-dimension").val(layoutDimensions.y);
 
     // Fit the Cytoscape view to the new layout
-    cy.fit();
+    cy.fit(cy.elements(), 32);
+    const canvas = document.getElementById("cy");
+    canvas.getAnimations().forEach((animation) => animation.cancel());
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      canvas.animate([{ opacity: 0.3 }, { opacity: 1 }], { duration: 450, easing: "ease-out" });
+    }
   }
 
   cy.nodes().ungrabify();
 
-  // Panning using arrow keys
-  document.addEventListener("keydown", function (event) {
+  // Canvas shortcuts must not steal cursor movement from the editor or forms.
+  document.getElementById("cy").addEventListener("keydown", function (event) {
     const panAmount = 50; // Adjust this value to change pan speed
     if (event.key === "ArrowLeft") {
       cy.panBy({ x: panAmount, y: 0 });
@@ -222,6 +326,18 @@ $(document).ready(() => {
       event.preventDefault();
     } else if (event.key === "ArrowDown") {
       cy.panBy({ x: 0, y: -panAmount });
+      event.preventDefault();
+    }
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (
+      event.key === "Escape" &&
+      !event.defaultPrevented &&
+      selectedGateType &&
+      !event.target.closest("#editor-container, input, textarea, select, [contenteditable], .modal")
+    ) {
+      cancelPlacement();
       event.preventDefault();
     }
   });
@@ -246,7 +362,7 @@ $(document).ready(() => {
 
   // Reset Zoom Button
   $("#reset-zoom").on("click", function () {
-    cy.fit(); // Reset zoom to fit the entire layout in view
+    cy.fit(cy.elements(), 32); // Reset zoom to fit the entire layout in view
   });
 
   // Ortho Button Click Handler
@@ -337,6 +453,7 @@ $(document).ready(() => {
 
   // Gold Button Click Event (opens modal automatically due to data-bs-toggle)
   $("#apply-gold").on("click", function () {
+    if (!document.getElementById("gold-params-form").reportValidity()) return;
     // Disable the apply button to prevent multiple clicks
     $("#apply-gold").prop("disabled", true);
     updateMessageArea("Applying gold...", "info");
@@ -356,13 +473,10 @@ $(document).ready(() => {
     const mode = $("input[name='gold-mode']:checked").val();
 
     // Timeout (ms)
-    const timeout = parseInt($("#gold-timeout").val(), 10);
+    const timeout = Number($("#gold-timeout").val());
 
     // Number of Vertex Expansions
-    const num_vertex_expansions = parseInt(
-      $("#gold-num-vertex-expansions").val(),
-      10,
-    );
+    const num_vertex_expansions = Number($("#gold-num-vertex-expansions").val());
 
     // Planar Option
     const planar = $("input[name='gold-planar']:checked").val() === "true";
@@ -373,23 +487,6 @@ $(document).ready(() => {
     // Enable Multithreading
     const enable_multithreading =
       $("input[name='gold-enable-multithreading']:checked").val() === "true";
-
-    // Validate parameters (optional)
-    if (
-      isNaN(timeout) ||
-      timeout < 1 ||
-      timeout > 10000 ||
-      isNaN(num_vertex_expansions) ||
-      num_vertex_expansions < 1 ||
-      num_vertex_expansions > 100
-    ) {
-      updateMessageArea(
-        "Invalid input. Please check timeout and number of vertex expansions.",
-        "danger",
-      );
-      $("#apply-gold").prop("disabled", false);
-      return;
-    }
 
     // Create a data object with parameters to be sent
     const requestData = {
@@ -425,7 +522,7 @@ $(document).ready(() => {
       error: function (jqXHR, textStatus, errorThrown) {
         $("#apply-gold").prop("disabled", false);
         updateMessageArea(
-          "Error applying gold algorithm: " + errorThrown,
+          "Error applying gold algorithm: " + (jqXHR.responseJSON?.error || errorThrown),
           "danger",
         );
       },
@@ -434,6 +531,7 @@ $(document).ready(() => {
 
   // Exact Algorithm Apply Button Click Event
   $("#apply-exact").on("click", function () {
+    if (!document.getElementById("exact-params-form").reportValidity()) return;
     // Disable the apply button to prevent multiple clicks
     $("#apply-exact").prop("disabled", true);
     updateMessageArea("Applying exact algorithm...", "info");
@@ -446,17 +544,17 @@ $(document).ready(() => {
 
     // Collect the parameter values from the modal form
     // Upper Bound X
-    const upper_bound_x = parseInt($("#exact-upper-bound-x").val(), 10) || 1000;
+    const upper_bound_x = Number($("#exact-upper-bound-x").val() || 1000);
 
     // Upper Bound Y
-    const upper_bound_y = parseInt($("#exact-upper-bound-y").val(), 10) || 1000;
+    const upper_bound_y = Number($("#exact-upper-bound-y").val() || 1000);
 
     // Fixed Size
     const fixed_size =
       $("input[name='exact-fixed-size']:checked").val() === "true";
 
     // Number of Threads
-    const num_threads = parseInt($("#exact-num-threads").val(), 10) || 1;
+    const num_threads = Number($("#exact-num-threads").val());
 
     // Crossings
     const crossings =
@@ -483,7 +581,7 @@ $(document).ready(() => {
       $("input[name='exact-minimize-crossings']:checked").val() === "true";
 
     // Timeout
-    const timeout = parseInt($("#exact-timeout").val(), 10) || 4294967;
+    const timeout = Number($("#exact-timeout").val());
 
     // Create a data object with parameters to be sent
     const requestData = {
@@ -523,7 +621,7 @@ $(document).ready(() => {
       error: function (jqXHR, textStatus, errorThrown) {
         $("#apply-exact").prop("disabled", false);
         updateMessageArea(
-          "Error applying exact algorithm: " + errorThrown,
+          "Error applying exact algorithm: " + (jqXHR.responseJSON?.error || errorThrown),
           "danger",
         );
       },
@@ -549,6 +647,7 @@ $(document).ready(() => {
 
   // Event listener for the "Optimize" button
   $("#apply-optimization").on("click", function () {
+    if (!document.getElementById("optimization-params-form").reportValidity()) return;
     // Disable the apply button to prevent multiple clicks
     $("#apply-optimization").prop("disabled", true).text("Applying...");
 
@@ -558,8 +657,7 @@ $(document).ready(() => {
     ).val();
     let customRelocations = null;
     if (maxGateRelocations === "custom") {
-      customRelocations =
-        parseInt($("#custom-max-gate-relocations").val(), 10) || 0;
+      customRelocations = Number($("#custom-max-gate-relocations").val());
     }
 
     // Optimize PO Positions Only
@@ -571,29 +669,7 @@ $(document).ready(() => {
       $("input[name='planar-optimization']:checked").val() === "true";
 
     // Timeout
-    const timeout = parseInt($("#optimization-timeout").val(), 10);
-
-    // Validate Timeout
-    if (isNaN(timeout) || timeout < 1 || timeout > 10000) {
-      updateMessageArea(
-        "Invalid timeout value. Please enter a number between 1 and 10000.",
-        "danger",
-      );
-      $("#apply-optimization").prop("disabled", false).text("Optimize");
-      return;
-    }
-
-    // If "Custom" is selected, ensure custom relocations is a valid number
-    if (maxGateRelocations === "custom") {
-      if (isNaN(customRelocations) || customRelocations < 0) {
-        updateMessageArea(
-          "Invalid custom relocations value. Please enter a non-negative number.",
-          "danger",
-        );
-        $("#apply-optimization").prop("disabled", false).text("Optimize");
-        return;
-      }
-    }
+    const timeout = Number($("#optimization-timeout").val());
 
     // Create a data object with parameters to be sent
     const requestData = {
@@ -625,7 +701,7 @@ $(document).ready(() => {
       },
       error: function (jqXHR, textStatus, errorThrown) {
         $("#apply-optimization").prop("disabled", false).text("Optimize");
-        updateMessageArea("Error optimizing layout: " + errorThrown, "danger");
+        updateMessageArea("Error optimizing layout: " + (jqXHR.responseJSON?.error || errorThrown), "danger");
       },
     });
   });
@@ -639,11 +715,21 @@ $(document).ready(() => {
   $("#import-verilog-file-input").on("change", function () {
     const file = this.files[0]; // Get the selected file
     if (file) {
+      if (savingVerilog || editor.getReadOnly()) {
+        updateMessageArea("Please wait for the current save to finish before importing Verilog.", "info");
+        this.value = "";
+        return;
+      }
+      clearTimeout(editorSaveTimer);
+      pendingVerilogSave = false;
+      valid_verilog = false;
+      editor.setReadOnly(true);
+      setEditorStatus("Importing…", "saving");
       const formData = new FormData();
       formData.append("file", file);
 
       // Disable the button and show a loading message
-      $("#import-verilog-button").prop("disabled", true);
+      $("#import-verilog-button, #load-example-button, #reset-editor-button").prop("disabled", true);
       updateMessageArea("Uploading Verilog code...", "info");
 
       $.ajax({
@@ -653,13 +739,12 @@ $(document).ready(() => {
         processData: false, // Prevent jQuery from processing the data
         contentType: false, // Let the browser set the correct content type
         success: (data) => {
-          $("#import-verilog-button").prop("disabled", false); // Re-enable button
           if (data.success) {
             // Load the code into the editor
-            editor.setValue(data.code, -1); // -1 moves cursor to the beginning
+            replaceEditorCode(data.code, true);
             updateMessageArea("Verilog code imported successfully.", "success");
-            valid_verilog = true;
           } else {
+            setEditorStatus("Import failed", "error");
             updateMessageArea(
               "Failed to import Verilog code: " + data.error,
               "danger",
@@ -667,11 +752,24 @@ $(document).ready(() => {
           }
         },
         error: (jqXHR, textStatus, errorThrown) => {
-          $("#import-verilog-button").prop("disabled", false); // Re-enable button
+          setEditorStatus("Import failed", "error");
           updateMessageArea(
-            "Error communicating with the server: " + errorThrown,
+            "Failed to import Verilog code: " + (jqXHR.responseJSON?.error || errorThrown),
             "danger",
           );
+        },
+        complete: () => {
+          editor.setReadOnly(false);
+          $("#import-verilog-button, #load-example-button, #reset-editor-button").prop("disabled", false);
+          this.value = "";
+          if (!valid_verilog) {
+            // Before any load or edit, the empty editor is not an intentional clear.
+            if (editorRevision === 0) {
+              loadEditor();
+            } else {
+              editorSaveTimer = setTimeout(saveVerilog, 700);
+            }
+          }
         },
       });
     } else {
@@ -680,20 +778,24 @@ $(document).ready(() => {
   });
 
   // Gate selection
-  $("#gate-selection button").on("click", function () {
+  $("#gate-selection button").attr("aria-pressed", "false").on("click", function () {
+    if (editingLayout) return;
     const buttonId = $(this).attr("id");
+    cancelPlacement(false);
     selectedGateType = buttonId.split("-")[0]; // 'pi', 'po', 'inv', 'buf', 'and', etc.
-    $("#gate-selection button").removeClass("active");
 
     if (selectedGateType === "cancel") {
       cancelPlacement();
     } else {
-      $(this).addClass("active");
+      $(this).addClass("active").attr("aria-pressed", "true");
+      $("#active-tool").text($(this).attr("aria-label") || $(this).text().trim() || selectedGateType.toUpperCase());
 
       if (selectedGateType === "delete") {
         updateMessageArea("Select a gate to delete.", "info");
       } else if (selectedGateType === "connect") {
         updateMessageArea("Select the source gate to connect.", "info");
+      } else if (selectedGateType === "move") {
+        updateMessageArea("Select a gate to move, then choose an empty tile.", "info");
       } else {
         updateMessageArea(
           `Selected ${selectedGateType.toUpperCase()} gate. Click on a tile to place.`,
@@ -704,7 +806,9 @@ $(document).ready(() => {
   });
 
   // Function to cancel gate placement
-  function cancelPlacement() {
+  function cancelPlacement(announce = true) {
+    // Keep callback selections intact until the current edit has finished.
+    if (editingLayout) return;
     // Reset selections
     selectedGateType = null;
     selectedNode = null;
@@ -715,17 +819,22 @@ $(document).ready(() => {
     cy.nodes().removeClass("highlighted");
 
     // Update UI
-    $("#gate-selection button").removeClass("active");
-    updateMessageArea("Action cancelled.", "secondary");
+    $("#gate-selection button").removeClass("active").attr("aria-pressed", "false");
+    $("#active-tool").text("Pan & zoom");
+    if (announce) updateMessageArea("Action cancelled.", "secondary");
   }
 
   // Message area update function
   function updateMessageArea(message, type = "info") {
-    $("#message-area")
-      .removeClass()
-      .addClass(`alert alert-${type} text-center`)
+    $("#message-area, .modal.show .modal-status")
+      .removeClass("d-none alert-info alert-success alert-warning alert-danger alert-secondary")
+      .addClass(`alert alert-${type}`)
       .text(message);
   }
+
+  $(".modal").on("show.bs.modal", function () {
+    $(this).find(".modal-status").addClass("d-none").text("");
+  });
 
   // Handle layout creation with bounding box check
   $("#layout-form").on("submit", function (event) {
@@ -771,7 +880,8 @@ $(document).ready(() => {
               data: JSON.stringify({ x: xDimension, y: yDimension }),
               success: function (data) {
                 if (data.success) {
-                  createGridNodes(xDimension, yDimension);
+                  cy.batch(() => createGridNodes(xDimension, yDimension));
+                  cy.fit(cy.elements(), 32);
                   updateMessageArea(
                     "Layout resized successfully. Existing gates are preserved.",
                     "success",
@@ -876,6 +986,7 @@ $(document).ready(() => {
 
   // Handle Reset Editor
   $("#reset-editor-button").on("click", function () {
+    if (editor.getReadOnly()) return;
     // Confirm the reset action with the user
     if (
       !confirm(
@@ -885,52 +996,14 @@ $(document).ready(() => {
       return; // Exit if the user cancels
     }
 
-    // Disable the reset editor button to prevent multiple clicks
-    $("#reset-editor-button").prop("disabled", true);
-    // Optionally, disable other interactive elements or show a spinner
-    $("#spinner").removeClass("d-none");
-    updateMessageArea("Resetting editor...", "info");
-
-    // Send a POST request to the /reset_editor endpoint
-    $.ajax({
-      url: "/reset_editor",
-      type: "POST",
-      contentType: "application/json",
-      data: JSON.stringify({}),
-      success: function (data) {
-        if (data.success) {
-          // Set the editor content to the reset code
-          editor.setValue(data.code, -1); // -1 moves cursor to the start
-          updateMessageArea("Editor has been reset successfully.", "success");
-        } else {
-          updateMessageArea("Failed to reset editor: " + data.error, "danger");
-        }
-      },
-      error: function (jqXHR, textStatus, errorThrown) {
-        updateMessageArea(
-          "Error communicating with the server: " + errorThrown,
-          "danger",
-        );
-      },
-      complete: function () {
-        // Re-enable the reset editor button and hide the spinner
-        $("#reset-editor-button").prop("disabled", false);
-        $("#spinner").addClass("d-none");
-      },
-    });
+    replaceEditorCode("");
+    editor.focus();
+    updateMessageArea("Editor cleared. Saving the empty editor…", "info");
   });
 
   function createGridNodes(newX, newY) {
-    const existingNodes = cy.nodes();
-
-    // Remove nodes outside the new dimensions
-    existingNodes.forEach((node) => {
-      const x = node.data("x");
-      const y = node.data("y");
-      if (x >= newX || y >= newY) {
-        cy.remove(node);
-      }
-    });
+    // Remove cropped tiles together to avoid rebuilding the element pool per tile.
+    cy.remove(cy.nodes().filter((node) => node.data("x") >= newX || node.data("y") >= newY));
 
     // Add new nodes if necessary
     for (let i = 0; i < newX; i++) {
@@ -951,23 +1024,12 @@ $(document).ready(() => {
               y: j,
               tileNumber: tileNumber,
               color: tileColor,
+              backgroundColor: tileColor,
+              image: `data:image/svg+xml;utf8,${encodeURIComponent(createTileNumberSVG(tileNumber))}`,
               hasGate: false,
             },
             position: { x: i * 60, y: j * 60 },
             locked: true,
-          });
-
-          // Add tile number as background image
-          const newNode = cy.getElementById(nodeId);
-          newNode.style({
-            "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-              createTileNumberSVG(tileNumber),
-            )}`,
-            "background-width": "100%",
-            "background-height": "100%",
-            "background-position": "bottom right",
-            "background-repeat": "no-repeat",
-            "background-clip": "none",
           });
         }
       }
@@ -976,10 +1038,7 @@ $(document).ready(() => {
     // Update the layout dimensions
     layoutDimensions.x = newX;
     layoutDimensions.y = newY;
-
-    // Re-apply the layout
-    cy.layout({ name: "preset" }).run();
-    cy.fit();
+    updateLayoutStatus();
   }
 
   function createTileNumberSVG(number, gateType, orientation) {
@@ -1274,8 +1333,9 @@ $(document).ready(() => {
         // Remove highlight from source node
         selectedSourceNode.removeClass("highlighted");
 
-        // Update gate labels
-        updateGateLabels();
+        // Only the new gate and its source changed orientation.
+        updateGateLabel(selectedNode);
+        updateGateLabel(selectedSourceNode);
 
         updateMessageArea(
           `${selectedGateType.toUpperCase()} gate placed successfully.`,
@@ -1408,8 +1468,9 @@ $(document).ready(() => {
         selectedSourceNode.removeClass("highlighted");
         selectedSourceNode2.removeClass("highlighted");
 
-        // Update gate labels
-        updateGateLabels();
+        updateGateLabel(selectedNode);
+        updateGateLabel(selectedSourceNode);
+        updateGateLabel(selectedSourceNode2);
 
         updateMessageArea(
           `${selectedGateType.toUpperCase()} gate placed successfully.`,
@@ -1460,6 +1521,7 @@ $(document).ready(() => {
   // Modified placeGate function to return a Promise
   function placeGate(x, y, gateType, params) {
     return new Promise((resolve, reject) => {
+      editingLayout = true;
       $.ajax({
         url: "/place_gate",
         type: "POST",
@@ -1508,6 +1570,9 @@ $(document).ready(() => {
             "danger",
           );
           reject();
+        },
+        complete: () => {
+          editingLayout = false;
         },
       });
     });
@@ -1558,14 +1623,13 @@ $(document).ready(() => {
         gateColor = node.data("color");
     }
 
-    // Apply the chosen background color
-    node.style("background-color", gateColor);
+    const tileNumber = node.data("tileNumber");
+    let orientation;
 
     if (gateType === "buf") {
       // Set the label and background image for bufc
       node.data("label", "");
       const nodePosition = node.position();
-      const tileNumber = node.data("tileNumber");
 
       let source = "Middle";
       const inEdges = node
@@ -1602,18 +1666,10 @@ $(document).ready(() => {
         }
       });
 
-      const orientation = source + "To" + target;
-
-      node.style({
-        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-          createTileNumberSVG(tileNumber, gateType, orientation),
-        )}`,
-        "background-fit": "contain", // Ensure the image fits within the node
-      });
+      orientation = source + "To" + target;
     } else if (gateType === "fanout") {
       node.data("label", "");
       const nodePosition = node.position();
-      const tileNumber = node.data("tileNumber");
 
       let source = "Middle";
       const inEdges = node
@@ -1632,44 +1688,14 @@ $(document).ready(() => {
         }
       });
 
-      const orientation = source;
-
-      node.style({
-        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-          createTileNumberSVG(tileNumber, gateType, orientation),
-        )}`,
-        "background-fit": "contain", // Ensure the image fits within the node
-      });
+      orientation = source;
     } else if (gateType === "bufc" || gateType === "bufk") {
       // Set the label and background image for bufc
       node.data("label", "");
-      const tileNumber = node.data("tileNumber");
-      node.style({
-        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-          createTileNumberSVG(tileNumber, gateType),
-        )}`,
-        "background-fit": "contain", // Ensure the image fits within the node
-      });
-    } else {
-      // Ensure the tile number remains visible
-      const tileNumber = node.data("tileNumber");
-      node.style({
-        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-          createTileNumberSVG(tileNumber, gateType),
-        )}`,
-        "background-width": "100%",
-        "background-height": "100%",
-        "background-position": "bottom right",
-        "background-repeat": "no-repeat",
-        "background-clip": "none",
-      });
     }
-  }
-
-  // Update gate labels and colors based on the number of outgoing connections
-  function updateGateLabels() {
-    cy.nodes().forEach((node) => {
-      updateGateLabel(node);
+    node.data({
+      backgroundColor: gateColor,
+      image: `data:image/svg+xml;utf8,${encodeURIComponent(createTileNumberSVG(tileNumber, gateType, orientation))}`,
     });
   }
 
@@ -1691,6 +1717,7 @@ $(document).ready(() => {
     const x = node.data("x");
     const y = node.data("y");
 
+    editingLayout = true;
     $.ajax({
       url: "/delete_gate",
       type: "POST",
@@ -1706,7 +1733,6 @@ $(document).ready(() => {
           node.data("label", "");
           node.data("gateType", "");
           node.data("hasGate", false);
-          node.style("background-color", node.data("color"));
 
           const inEdges = connectedEdges.filter(
             (edge) => edge.data("target") === node.id(),
@@ -1739,6 +1765,9 @@ $(document).ready(() => {
       },
       error: () => {
         updateMessageArea("Error communicating with the server.", "danger");
+      },
+      complete: () => {
+        editingLayout = false;
       },
     });
   }
@@ -1812,6 +1841,7 @@ $(document).ready(() => {
     }
 
     // Proceed to connect
+    editingLayout = true;
     $.ajax({
       url: "/connect_gates",
       type: "POST",
@@ -1871,6 +1901,9 @@ $(document).ready(() => {
         selectedSourceNode = null;
         selectedNode = null;
       },
+      complete: () => {
+        editingLayout = false;
+      },
     });
   }
 
@@ -1905,6 +1938,7 @@ $(document).ready(() => {
     const targetY = selectedNode.data("y");
 
     // Proceed to connect
+    editingLayout = true;
     $.ajax({
       url: "/move_gate",
       type: "POST",
@@ -1974,6 +2008,9 @@ $(document).ready(() => {
         selectedSourceNode = null;
         selectedNode = null;
       },
+      complete: () => {
+        editingLayout = false;
+      },
     });
   }
 
@@ -2040,7 +2077,7 @@ $(document).ready(() => {
     }
 
     // Show the equivalence area with fade-in effect
-    equivalenceArea.removeClass("d-none").fadeIn(100, function () {
+    equivalenceArea.stop(true, true).removeClass("d-none").fadeIn(100, function () {
       $(this).addClass("show");
     });
   }
@@ -2127,7 +2164,7 @@ $(document).ready(() => {
     violationsList.append(`<pre>${report}</pre>`);
 
     // Show the Violations Area
-    violationsArea.removeClass("d-none").fadeIn(100, function () {
+    violationsArea.stop(true, true).removeClass("d-none").fadeIn(100, function () {
       $(this).addClass("show");
     });
   }
@@ -2151,7 +2188,7 @@ $(document).ready(() => {
       },
       error: (jqXHR, textStatus, errorThrown) => {
         updateMessageArea(
-          "Error communicating with the server: " + errorThrown,
+          "Failed to check equivalence: " + (jqXHR.responseJSON?.error || errorThrown),
           "danger",
         );
       },
@@ -2165,59 +2202,37 @@ $(document).ready(() => {
   });
 
   // Export Layout
-  $("#export-fgl-layout-button").on("click", function () {
-    // Show a loading spinner or disable the button during the download
-    $("#export-fgl-layout-button").prop("disabled", true);
-
-    // Trigger the download
-    window.location.href = "/export_layout";
-
-    // Re-enable the button after a delay (or based on another event like download completion)
-    setTimeout(function () {
-      $("#export-fgl-layout-button").prop("disabled", false);
-    }, 3000); // Adjust this delay based on the expected download time
-  });
-
-  // Export DOT Layout
-  $("#export-dot-layout-button").on("click", function () {
-    // Show a loading spinner or disable the button during the download
-    $("#export-dot-layout-button").prop("disabled", true);
-
-    // Trigger the download
-    window.location.href = "/export_dot_layout";
-
-    // Re-enable the button after a delay (or based on another event like download completion)
-    setTimeout(function () {
-      $("#export-dot-layout-button").prop("disabled", false);
-    }, 3000); // Adjust this delay based on the expected download time
-  });
-
-  // Export QCA Layout
-  $("#export-qca-layout-button").on("click", function () {
-    // Show a loading spinner or disable the button during the download
-    $("#export-qca-layout-button").prop("disabled", true);
-
-    // Trigger the download
-    window.location.href = "/export_qca_layout";
-
-    // Re-enable the button after a delay (or based on another event like download completion)
-    setTimeout(function () {
-      $("#export-qca-layout-button").prop("disabled", false);
-    }, 3000); // Adjust this delay based on the expected download time
-  });
-
-  // Export SiDB Layout
-  $("#export-sidb-layout-button").on("click", function () {
-    // Show a loading spinner or disable the button during the download
-    $("#export-sidb-layout-button").prop("disabled", true);
-
-    // Trigger the download
-    window.location.href = "/export_sidb_layout";
-
-    // Re-enable the button after a delay (or based on another event like download completion)
-    setTimeout(function () {
-      $("#export-sidb-layout-button").prop("disabled", false);
-    }, 3000); // Adjust this delay based on the expected download time
+  const exportFormats = {
+    "export-fgl-layout-button": ["/export_layout", "layout.fgl"],
+    "export-dot-layout-button": ["/export_dot_layout", "layout.dot"],
+    "export-qca-layout-button": ["/export_qca_layout", "layout_qca.svg"],
+    "export-sidb-layout-button": ["/export_sidb_layout", "layout_sidb.svg"],
+  };
+  $(Object.keys(exportFormats).map((id) => `#${id}`).join(",")).on("click", async function () {
+    const [route, filename] = exportFormats[this.id];
+    this.disabled = true;
+    let objectUrl;
+    try {
+      const response = await fetch(route);
+      if (response.headers.get("content-type")?.includes("application/json")) {
+        const result = await response.json();
+        throw new Error(result.error || "The layout could not be exported.");
+      }
+      if (!response.ok) throw new Error(`Export failed (HTTP ${response.status}).`);
+      objectUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      updateMessageArea(`Download started: ${filename}.`, "success");
+    } catch (error) {
+      updateMessageArea("Could not export layout: " + error.message, "danger");
+    } finally {
+      this.disabled = false;
+      if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
   });
 
   // Trigger file input when the import button is clicked
@@ -2259,7 +2274,7 @@ $(document).ready(() => {
         error: (jqXHR, textStatus, errorThrown) => {
           $("#import-button").prop("disabled", false); // Re-enable button
           updateMessageArea(
-            "Error communicating with the server: " + errorThrown,
+            "Failed to import layout: " + (jqXHR.responseJSON?.error || errorThrown),
             "danger",
           );
         },
@@ -2275,36 +2290,7 @@ $(document).ready(() => {
       type: "GET",
       success: (data) => {
         if (data.success) {
-          // Clear existing elements
-          cy.elements().remove();
-
-          // Recreate the grid
-          createGridNodes(data.layoutDimensions.x, data.layoutDimensions.y);
-
-          // Place gates and connections based on the layout data
-          data.gates.forEach((gate) => {
-            // Place the gate
-            placeGateLocally(gate.x, gate.y, gate.type, gate.name);
-
-            // Handle connections (edges)
-            gate.connections.forEach((conn) => {
-              cy.add({
-                group: "edges",
-                data: {
-                  id: `edge-node-${conn.sourceX}-${conn.sourceY}-node-${gate.x}-${gate.y}`,
-                  source: `node-${conn.sourceX}-${conn.sourceY}`,
-                  target: `node-${gate.x}-${gate.y}`,
-                },
-              });
-            });
-          });
-
-          // Update gate labels after loading
-          updateGateLabels();
-
-          // **Update the form input fields with the current layout dimensions**
-          $("#x-dimension").val(data.layoutDimensions.x);
-          $("#y-dimension").val(data.layoutDimensions.y);
+          updateLayout(data.layoutDimensions, data.gates);
 
           updateMessageArea("Layout loaded successfully.", "success");
         } else {
@@ -2324,25 +2310,24 @@ $(document).ready(() => {
   }
 
   function loadEditor() {
+    const revision = editorRevision;
     $.ajax({
       url: "/get_verilog_code", // Endpoint to fetch Verilog code
       type: "GET",
       dataType: "json",
       success: function (data) {
+        if (revision !== editorRevision || editor.getReadOnly()) return;
         if (data.success) {
           // Load the Verilog code into the Ace Editor
-          editor.setValue(data.code, -1); // The second parameter moves the cursor to the start
-          updateMessageArea("Verilog code loaded successfully.", "success");
-          valid_verilog = true;
+          replaceEditorCode(data.code, true);
         } else {
-          updateMessageArea(
-            "No existing Verilog code found. Please write new Verilog code.",
-            "info",
-          );
+          setEditorStatus("Ready", "empty");
           valid_verilog = false;
         }
       },
       error: function (jqXHR, textStatus, errorThrown) {
+        if (revision !== editorRevision) return;
+        setEditorStatus("Could not load code", "error");
         // AJAX request failed
         updateMessageArea(
           "Error communicating with the server: " + errorThrown,
@@ -2362,7 +2347,5 @@ $(document).ready(() => {
     }
     node.data("gateType", `${gateType.toUpperCase()}`);
     node.data("hasGate", true);
-
-    updateGateLabel(node);
   }
 });
