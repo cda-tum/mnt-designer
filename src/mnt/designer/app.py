@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import secrets
+import struct
 import tempfile
 import uuid
 import webbrowser
@@ -521,8 +522,11 @@ def place_gate():
                     (x, y),
                 )
             elif gate_type in ["bufc", "bufk"]:
-                layout.create_buf(layout.make_signal(first_node), (x, y, 0))
-                layout.create_buf(layout.make_signal(second_node), (x, y, 1))
+                # The upper wire always faces east: west input for straight, north input for bent crossings.
+                upper_is_first = first_x < x if gate_type == "bufc" else first_y < y
+                lower_node, upper_node = (second_node, first_node) if upper_is_first else (first_node, second_node)
+                layout.create_buf(layout.make_signal(lower_node), (x, y, 0))
+                layout.create_buf(layout.make_signal(upper_node), (x, y, 1))
                 layout.obstruct_coordinate((x, y, 1))
             if layout.fanout_size(first_node) == 2:
                 update_first = True
@@ -884,12 +888,12 @@ def move_gate():
         source = (source_x, source_y, source_z)
         target_x = int(data["target_x"])
         target_y = int(data["target_y"])
-        target_z = 0
+        target_z = source_z
         target = (target_x, target_y, target_z)
 
         if not (0 <= target_x <= layout.x() and 0 <= target_y <= layout.y()):
             return jsonify({"success": False, "error": "Target tile is outside the layout."}), 400
-        if not layout.is_empty_tile(target) or not layout.is_empty_tile((target_x, target_y, 1)):
+        if not layout.is_empty_tile((target_x, target_y, 0)) or not layout.is_empty_tile((target_x, target_y, 1)):
             return jsonify({"success": False, "error": "Target tile already has a gate."}), 400
         if source_gate_type in ("bufc", "bufk") and layout.is_empty_tile((source_x, source_y, 0)):
             return jsonify({"success": False, "error": "Crossing gate is incomplete."}), 400
@@ -916,7 +920,7 @@ def move_gate():
         if source_gate_type in ("bufc", "bufk"):
             source_z = 0
             source = (source_x, source_y, source_z)
-            target_z = 1
+            target_z = 0
             target = (target_x, target_y, target_z)
 
             source_node = layout.get_node(source)
@@ -1495,19 +1499,29 @@ def apply_exact():
             )
         # Parameters
         data = request.json
+        if not isinstance(data, dict):
+            return jsonify({"success": False, "error": "Exact parameters must be a JSON object."}), 400
         params = exact_params()
         params.scheme = "2DDWave"
-        params.upper_bound_x = int(data.get("upper_bound_x", params.upper_bound_x))
-        params.upper_bound_y = int(data.get("upper_bound_y", params.upper_bound_y))
+        # Match the native uint16_t bounds, size_t thread count, and unsigned timeout.
+        limits = {
+            "upper_bound_x": 65535,
+            "upper_bound_y": 65535,
+            "num_threads": (1 << (8 * struct.calcsize("P"))) - 1,
+            "timeout": 4294967295,
+        }
+        for name, maximum in limits.items():
+            value = data.get(name, getattr(params, name))
+            if type(value) is not int or not 1 <= value <= maximum:
+                return jsonify({"success": False, "error": f"{name} must be an integer between 1 and {maximum}."}), 400
+            setattr(params, name, value)
         params.fixed_size = bool(data.get("fixed_size", False))
-        params.num_threads = int(data.get("num_threads", 1))
         params.crossings = bool(data.get("crossings", True))
         params.border_io = bool(data.get("border_io", True))
         params.straight_inverters = bool(data.get("straight_inverters", False))
         params.desynchronize = bool(data.get("desynchronize", True))
         params.minimize_wires = bool(data.get("minimize_wires", False))
         params.minimize_crossings = bool(data.get("minimize_crossings", False))
-        params.timeout = int(data.get("timeout", 4294967))
         # Now run the exact algorithm
         layout = exact_cartesian(network, params)
         if layout:
@@ -1584,6 +1598,25 @@ def apply_optimization():
         return jsonify({"success": False, "error": str(e)})
 
 
+def _crossing_type(layout, x, y):
+    # Connected native/FGL layouts may use either layer order; actual wiring takes precedence.
+    for z in (0, 1):
+        incoming = layout.fanins((x, y, z))
+        outgoing = layout.fanouts((x, y, z))
+        if incoming and outgoing:
+            return "bufc" if incoming[0].x == outgoing[0].x or incoming[0].y == outgoing[0].y else "bufk"
+
+    # Input-only crossings created here encode intent in their east-facing upper wire.
+    for z in (1, 0):
+        incoming = layout.fanins((x, y, z))
+        if incoming:
+            straight = incoming[0].x < x if z == 1 else incoming[0].y < y
+            return "bufc" if straight else "bufk"
+    # Fully disconnected crossings have no routing intent in native/FGL data. Foreign partial
+    # layouts may also use a different layer convention; their original intent cannot be recovered.
+    return "bufk"
+
+
 def get_layout_information(layout):
     layout_dimensions = {"x": layout.x() + 1, "y": layout.y() + 1}
     gates = []
@@ -1609,25 +1642,7 @@ def get_layout_information(layout):
                     gate_type = "buf"
                     above_gate = layout.above(layout.get_tile(node))
                     if not layout.is_empty_tile(above_gate) and layout.z() == 1:
-                        incoming = layout.fanins(above_gate)
-                        outgoing = layout.fanouts(above_gate)
-                        if (
-                            incoming
-                            and outgoing
-                            and (
-                                (
-                                    incoming[0].x == layout.west(layout.get_tile(node)).x
-                                    and outgoing[0].x == layout.east(layout.get_tile(node)).x
-                                )
-                                or (
-                                    incoming[0].x == layout.north(layout.get_tile(node)).x
-                                    and outgoing[0].x == layout.south(layout.get_tile(node)).x
-                                )
-                            )
-                        ):
-                            gate_type = "bufc"
-                        else:
-                            gate_type = "bufk"
+                        gate_type = _crossing_type(layout, x, y)
                     if layout.fanout_size(node) == 2:
                         gate_type = "fanout"
                 elif layout.is_inv(node):
