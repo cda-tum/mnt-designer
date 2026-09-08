@@ -2136,7 +2136,7 @@ endmodule
     }
 
     // Show the equivalence area with fade-in effect
-    equivalenceArea.removeClass("d-none").fadeIn(100, function () {
+    equivalenceArea.stop(true, true).removeClass("d-none").fadeIn(100, function () {
       $(this).addClass("show");
     });
   }
@@ -2223,7 +2223,7 @@ endmodule
     violationsList.append(`<pre>${report}</pre>`);
 
     // Show the Violations Area
-    violationsArea.removeClass("d-none").fadeIn(100, function () {
+    violationsArea.stop(true, true).removeClass("d-none").fadeIn(100, function () {
       $(this).addClass("show");
     });
   }
