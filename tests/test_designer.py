@@ -1,6 +1,7 @@
 """Small end-to-end checks against the installed pyfiction bindings."""
 
 import io
+import struct
 from importlib.metadata import version
 from xml.etree import ElementTree
 
@@ -159,25 +160,114 @@ def test_import_verilog_and_safe_layout_edits(client):
     assert len(client.get("/get_layout").get_json()["gates"]) == 1
 
 
-def test_disconnected_crossing_remains_readable(client):
-    post(client, "/create_layout", {"x": 3, "y": 3})
-    for x, y in ((0, 1), (1, 0)):
+@pytest.mark.parametrize("gate_type", ["bufc", "bufk"])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("consumer", ["po", "and"])
+def test_partial_crossing_roundtrip_preserves_routing(client, gate_type, reverse, consumer):
+    post(client, "/create_layout", {"x": 4, "y": 4})
+    inputs = [(0, 1), (1, 0)]
+    for x, y in inputs:
         post(client, "/place_gate", {"x": x, "y": y, "gate_type": "pi", "params": {}})
+    if reverse:
+        inputs.reverse()
     post(
         client,
         "/place_gate",
         {
             "x": 1,
             "y": 1,
-            "gate_type": "bufc",
+            "gate_type": gate_type,
             "params": {
-                "first": {"position": {"x": 0, "y": 1}, "gate_type": "pi"},
-                "second": {"position": {"x": 1, "y": 0}, "gate_type": "pi"},
+                key: {"position": {"x": x, "y": y}, "gate_type": "pi"}
+                for key, (x, y) in zip(("first", "second"), inputs, strict=True)
             },
         },
     )
-    result = client.get("/get_layout").get_json()
-    assert result["success"] and len(result["gates"]) == 3
+
+    def crossing_type():
+        gates = client.get("/get_layout").get_json()["gates"]
+        return next(gate["type"] for gate in gates if (gate["x"], gate["y"]) == (1, 1))
+
+    def import_fgl(content):
+        post(client, "/reset_layout", {"x": 1, "y": 1})
+        response = client.post("/import_layout", data={"file": (io.BytesIO(content), "crossing.fgl")})
+        assert response.get_json()["success"], response.get_json()
+        assert crossing_type() == gate_type
+
+    assert crossing_type() == gate_type
+    assert client.get("/").status_code == 200  # Reload before either output exists.
+    assert crossing_type() == gate_type
+
+    for index, (x, y) in enumerate(((2, 1), (1, 2))):
+        params = {"first": {"position": {"x": 1, "y": 1}, "gate_type": crossing_type()}}
+        if consumer == "and":
+            aux_x, aux_y = (2, 0) if index == 0 else (0, 2)
+            post(client, "/place_gate", {"x": aux_x, "y": aux_y, "gate_type": "pi", "params": {}})
+            params["second"] = {"position": {"x": aux_x, "y": aux_y}, "gate_type": "pi"}
+            if index == 1:  # Crossing consumers must work in either input slot.
+                params["first"], params["second"] = params["second"], params["first"]
+        post(client, "/place_gate", {"x": x, "y": y, "gate_type": consumer, "params": params})
+        assert crossing_type() == gate_type  # Also check the one-output state.
+        if consumer == "and":
+            post(
+                client,
+                "/place_gate",
+                {
+                    "x": 3 if index == 0 else 1,
+                    "y": 1 if index == 0 else 3,
+                    "gate_type": "po",
+                    "params": {"first": {"position": {"x": x, "y": y}, "gate_type": "and"}},
+                },
+            )
+
+    completed = client.get("/export_layout").data
+    # Native FGL export omits dangling gates, but imported FGL can explicitly contain them.
+    partial = ElementTree.fromstring(completed)
+    gates = partial.find("gates")
+    for gate in list(gates):
+        if gate.findtext("type") != "PI" and (gate.findtext("loc/x"), gate.findtext("loc/y")) != ("1", "1"):
+            gates.remove(gate)
+    import_fgl(ElementTree.tostring(partial))
+    for swapped_layers in (False, True):
+        content = ElementTree.fromstring(completed)
+        if swapped_layers:  # Complete external FGL crossings can use the opposite layer convention.
+            for element in [*content.findall(".//loc"), *content.findall(".//signal")]:
+                if (element.findtext("x"), element.findtext("y")) == ("1", "1"):
+                    element.find("z").text = str(1 - int(element.findtext("z")))
+        import_fgl(ElementTree.tostring(content))
+        with client.session_transaction() as session:
+            layout = designer.layouts[session["session_id"]]
+        expected = [(0, 1), (1, 0)] if gate_type == "bufc" else [(1, 0), (0, 1)]
+        for target, origin in zip(((2, 1), (1, 2)), expected, strict=True):
+            wire = next(tile for tile in layout.fanins(target) if (tile.x, tile.y) == (1, 1))
+            source = layout.fanins(wire)[0]
+            assert (source.x, source.y) == origin
+
+
+def test_move_crossing_preserves_native_layer_order(client):
+    layout = designer.cartesian_obstruction_layout(designer.cartesian_gate_layout((3, 3, 1), "2DDWave", "Layout"))
+    for z in (0, 1):
+        layout.create_buf(layout.create_pi("", (z, 0)), (1, 1, z))
+    nodes = [layout.get_node((1, 1, z)) for z in (0, 1)]
+    with client.session_transaction() as session:
+        designer.layouts[session["session_id"]] = layout
+    post(
+        client,
+        "/move_gate",
+        {
+            "source_x": 1,
+            "source_y": 1,
+            "source_gate_type": "bufc",
+            "target_x": 0,
+            "target_y": 0,
+        },
+        success=False,
+    )
+    assert [layout.get_node((1, 1, z)) for z in (0, 1)] == nodes
+    post(client, "/move_gate", {"source_x": 1, "source_y": 1, "source_gate_type": "bufc", "target_x": 2, "target_y": 2})
+    assert [layout.get_node((2, 2, z)) for z in (0, 1)] == nodes
+    assert not layout.fanins((2, 2, 0)) and not layout.fanins((2, 2, 1))
+    assert client.get("/get_layout").get_json()["success"]
 
 
 @pytest.mark.parametrize("multithreading", [False, True])
@@ -224,9 +314,40 @@ def test_exact_defaults_and_unavailable_solver(placed, monkeypatch):
 
         monkeypatch.setattr(designer, "exact_cartesian", capture)
         assert post(placed, "/apply_exact", {"timeout": 1000})["gates"]
+        response = placed.post("/apply_exact", json=[1])
+        assert response.status_code == 400
+        assert "JSON object" in response.get_json()["error"]
     monkeypatch.setattr(designer, "exact_params", None)
     monkeypatch.setattr(designer, "exact_cartesian", None)
     assert "Z3" in post(placed, "/apply_exact", success=False)["error"]
+
+
+@pytest.mark.parametrize(
+    "field,maximum",
+    [
+        ("upper_bound_x", 65535),
+        ("upper_bound_y", 65535),
+        ("num_threads", (1 << (8 * struct.calcsize("P"))) - 1),
+        ("timeout", 4294967295),
+    ],
+)
+def test_exact_requires_positive_native_range_integers(placed, monkeypatch, field, maximum):
+    if designer.exact_params is None:
+        pytest.skip("Pyfiction was built without Exact parameters")
+    original = placed.get("/get_layout").get_json()
+
+    def capture(network, params):
+        assert getattr(params, field) == maximum
+        return designer.orthogonal(network)
+
+    monkeypatch.setattr(designer, "exact_cartesian", capture)
+    for invalid in (0, -1, True, False, 1.5, 1.0, "1", None, maximum + 1):
+        response = placed.post("/apply_exact", json={field: invalid})
+        assert response.status_code == 400, (field, invalid, response.get_json())
+        assert response.get_json()["success"] is False
+        assert field in response.get_json()["error"]
+        assert placed.get("/get_layout").get_json() == original
+    assert post(placed, "/apply_exact", {field: maximum})["gates"]
 
 
 def test_cli(monkeypatch, capsys):
