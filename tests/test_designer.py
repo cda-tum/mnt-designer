@@ -270,6 +270,113 @@ def test_move_crossing_preserves_native_layer_order(client):
     assert client.get("/get_layout").get_json()["success"]
 
 
+def test_upper_only_wire_roundtrip_move_connect_and_delete(client):
+    layout = designer.cartesian_obstruction_layout(designer.cartesian_gate_layout((3, 2, 1), "2DDWave", "Layout"))
+    layout.create_pi("a", (0, 0))
+    wire = layout.create_buf(layout.create_pi("b", (0, 1)), (1, 1, 1))
+    layout.create_po(wire, "y", (2, 1))
+    with client.session_transaction() as session:
+        session_id = session["session_id"]
+        designer.layouts[session_id] = layout
+    original = client.get("/get_layout").get_json()
+    upper = next(gate for gate in original["gates"] if (gate["x"], gate["y"]) == (1, 1))
+    assert upper["type"] == "buf" and upper["connections"] == [{"sourceX": 0, "sourceY": 1}]
+    content = client.get("/export_layout").data
+    response = client.post("/import_layout", data={"file": (io.BytesIO(content), "upper.fgl")})
+    assert response.get_json()["success"]
+    assert client.get("/get_layout").get_json() == original
+    layout = designer.layouts[session_id]
+    wire_node = layout.get_node((1, 1, 1))
+    post(client, "/place_gate", {"x": 1, "y": 1, "gate_type": "pi", "params": {}}, success=False)
+    assert client.get("/get_layout").get_json() == original
+    post(
+        client,
+        "/move_gate",
+        {
+            "source_x": 1,
+            "source_y": 1,
+            "source_gate_type": "buf",
+            "target_x": 1,
+            "target_y": 0,
+        },
+    )
+    assert layout.get_node((1, 0, 1)) == wire_node and layout.is_empty_tile((1, 0, 0))
+    assert not layout.fanins((2, 1))
+    post(
+        client,
+        "/connect_gates",
+        {
+            "source_x": 0,
+            "source_y": 0,
+            "source_gate_type": "pi",
+            "target_x": 1,
+            "target_y": 0,
+            "target_gate_type": "buf",
+            "find_path": False,
+        },
+    )
+    assert [(tile.x, tile.y, tile.z) for tile in layout.fanins((1, 0, 1))] == [(0, 0, 0)]
+    post(
+        client,
+        "/move_gate",
+        {
+            "source_x": 2,
+            "source_y": 1,
+            "source_gate_type": "po",
+            "target_x": 2,
+            "target_y": 0,
+        },
+    )
+    post(
+        client,
+        "/connect_gates",
+        {
+            "source_x": 1,
+            "source_y": 0,
+            "source_gate_type": "buf",
+            "target_x": 2,
+            "target_y": 0,
+            "target_gate_type": "po",
+            "find_path": False,
+        },
+    )
+    assert [(tile.x, tile.y, tile.z) for tile in layout.fanins((2, 0))] == [(1, 0, 1)]
+    post(client, "/delete_gate", {"x": 1, "y": 0})
+    assert layout.is_empty_tile((1, 0, 1)) and not layout.fanins((2, 0))
+    assert layout.is_pi(layout.get_node((0, 0))) and layout.is_pi(layout.get_node((0, 1)))
+    assert len(client.get("/get_layout").get_json()["gates"]) == 3
+
+
+@pytest.mark.parametrize("consumer,upper_key", [("buf", "first"), ("and", "first"), ("and", "second")])
+def test_upper_only_wire_feeds_new_consumers(client, consumer, upper_key):
+    layout = designer.cartesian_obstruction_layout(designer.cartesian_gate_layout((2, 2, 1), "2DDWave", "Layout"))
+    layout.create_buf(layout.create_pi("a", (0, 1)), (1, 1, 1))
+    layout.create_pi("b", (2, 0))
+    with client.session_transaction() as session:
+        designer.layouts[session["session_id"]] = layout
+    params = {upper_key: {"position": {"x": 1, "y": 1}, "gate_type": "buf"}}
+    if consumer == "and":
+        params["second" if upper_key == "first" else "first"] = {
+            "position": {"x": 2, "y": 0},
+            "gate_type": "pi",
+        }
+    post(client, "/place_gate", {"x": 2, "y": 1, "gate_type": consumer, "params": params})
+    assert (1, 1, 1) in [(tile.x, tile.y, tile.z) for tile in layout.fanins((2, 1))]
+    original = client.get("/get_layout").get_json()
+    post(
+        client,
+        "/place_gate",
+        {
+            "x": 1,
+            "y": 2,
+            "gate_type": "buf",
+            "params": {"first": {"position": {"x": 1, "y": 1}, "gate_type": "buf"}},
+        },
+        success=False,
+    )  # Upper routing-layer wires still cannot become fanouts.
+    assert client.get("/get_layout").get_json() == original
+
+
 @pytest.mark.parametrize("multithreading", [False, True])
 def test_gold_forwards_multithreading(placed, monkeypatch, multithreading):
     run_gold = designer.graph_oriented_layout_design
