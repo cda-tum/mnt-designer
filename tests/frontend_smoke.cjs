@@ -185,6 +185,44 @@ console.log("PASS: algorithm forms validate before submitting and preserve optio
 }
 console.log("PASS: errors reach the visible dialog and preserve backend explanations");
 
+// Data-mapped rendering must refresh wire direction, cleared tiles, and named gates.
+{
+  const rendering = {};
+  vm.createContext(rendering);
+  vm.runInContext(
+    source.slice(source.indexOf("  function createTileNumberSVG("), source.indexOf("  // In handlePlaceGate function")) +
+    source.slice(source.indexOf("  function updateGateLabel("), source.indexOf("  function deleteGate(")),
+    rendering,
+  );
+  const data = { gateType: "BUF", tileNumber: 1, color: "#ffffff", label: "BUF" };
+  const edges = [{ source: "left", target: "wire" }, { source: "wire", target: "bottom" }]
+    .map((edge) => ({ data: (key) => edge[key] }));
+  const node = {
+    id: () => "wire", position: () => ({ x: 60, y: 60 }), connectedEdges: () => edges,
+    data(key, value) {
+      if (typeof key === "object") Object.assign(data, key);
+      else if (arguments.length === 2) data[key] = value;
+      else return data[key];
+    },
+  };
+  rendering.cy = { getElementById: (id) => ({ position: () => id === "left" ? { x: 0, y: 60 } : { x: 60, y: 120 } }) };
+  const image = (type, orientation) => `data:image/svg+xml;utf8,${encodeURIComponent(rendering.createTileNumberSVG(1, type, orientation))}`;
+  rendering.updateGateLabel(node);
+  assert.equal(data.image, image("buf", "LeftToBottom"));
+  assert.equal(data.backgroundColor, "palegoldenrod");
+  assert.equal(data.label, "");
+  data.gateType = "";
+  rendering.updateGateLabel(node);
+  assert.equal(data.image, image(""), "cleared tiles must lose the wire image");
+  assert.equal(data.backgroundColor, data.color);
+  Object.assign(data, { gateType: "PI", label: "named input" });
+  rendering.updateGateLabel(node);
+  assert.equal(data.image, image("pi"));
+  assert.equal(data.backgroundColor, "lightgreen");
+  assert.equal(data.label, "named input", "repainting must preserve user-provided names");
+}
+console.log("PASS: data-mapped rendering preserves wire orientation, cleared tiles, and gate names");
+
 const exportCode = source.slice(source.indexOf("  // Export Layout"), source.indexOf("  // Trigger file input when the import button is clicked"));
 context.window = { location: { href: "/designer" } };
 context.updateMessageArea = (message, type) => { statuses.message = message; statuses.type = type; };

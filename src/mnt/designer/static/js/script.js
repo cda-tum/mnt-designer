@@ -141,7 +141,7 @@ endmodule
             "text-valign": "center",
             "text-halign": "center",
             color: "#17202b",
-            "background-color": "data(color)",
+            "background-color": "data(backgroundColor)",
             width: "50px",
             height: "50px",
             shape: "rectangle",
@@ -154,8 +154,13 @@ endmodule
             // Ensure the gate label is centered
             "text-margin-y": "0px",
             // Allow background image (tile number) to display
+            "background-image": "data(image)",
             "background-fit": "contain",
-            "background-clip": "node",
+            "background-width": "100%",
+            "background-height": "100%",
+            "background-position": "bottom right",
+            "background-repeat": "no-repeat",
+            "background-clip": "none",
           },
         },
         {
@@ -269,32 +274,28 @@ endmodule
   loadEditor();
 
   function updateLayout(layoutDimensions, gates) {
-    // Clear existing elements
-    cy.elements().remove();
+    // Apply styles once, after all gates and connections are in place.
+    cy.batch(() => {
+      cy.elements().remove();
+      createGridNodes(layoutDimensions.x, layoutDimensions.y);
 
-    // Recreate the grid with new dimensions
-    createGridNodes(layoutDimensions.x, layoutDimensions.y);
-
-    // Place gates and connections based on the new layout data
-    gates.forEach((gate) => {
-      // Place the gate
-      placeGateLocally(gate.x, gate.y, gate.type, gate.name);
-
-      // Handle connections (edges)
-      gate.connections.forEach((conn) => {
-        cy.add({
-          group: "edges",
-          data: {
-            id: `edge-node-${conn.sourceX}-${conn.sourceY}-node-${gate.x}-${gate.y}`,
-            source: `node-${conn.sourceX}-${conn.sourceY}`,
-            target: `node-${gate.x}-${gate.y}`,
-          },
+      gates.forEach((gate) => {
+        placeGateLocally(gate.x, gate.y, gate.type, gate.name);
+        gate.connections.forEach((conn) => {
+          cy.add({
+            group: "edges",
+            data: {
+              id: `edge-node-${conn.sourceX}-${conn.sourceY}-node-${gate.x}-${gate.y}`,
+              source: `node-${conn.sourceX}-${conn.sourceY}`,
+              target: `node-${gate.x}-${gate.y}`,
+            },
+          });
         });
       });
-    });
 
-    // Update gate labels after loading
-    updateGateLabels();
+      // Empty tiles already have their clock labels from createGridNodes.
+      cy.nodes("[?hasGate]").forEach(updateGateLabel);
+    });
 
     // **Update the form input fields with the current layout dimensions**
     $("#x-dimension").val(layoutDimensions.x);
@@ -879,7 +880,8 @@ endmodule
               data: JSON.stringify({ x: xDimension, y: yDimension }),
               success: function (data) {
                 if (data.success) {
-                  createGridNodes(xDimension, yDimension);
+                  cy.batch(() => createGridNodes(xDimension, yDimension));
+                  cy.fit(cy.elements(), 32);
                   updateMessageArea(
                     "Layout resized successfully. Existing gates are preserved.",
                     "success",
@@ -1000,16 +1002,8 @@ endmodule
   });
 
   function createGridNodes(newX, newY) {
-    const existingNodes = cy.nodes();
-
-    // Remove nodes outside the new dimensions
-    existingNodes.forEach((node) => {
-      const x = node.data("x");
-      const y = node.data("y");
-      if (x >= newX || y >= newY) {
-        cy.remove(node);
-      }
-    });
+    // Remove cropped tiles together to avoid rebuilding the element pool per tile.
+    cy.remove(cy.nodes().filter((node) => node.data("x") >= newX || node.data("y") >= newY));
 
     // Add new nodes if necessary
     for (let i = 0; i < newX; i++) {
@@ -1030,23 +1024,12 @@ endmodule
               y: j,
               tileNumber: tileNumber,
               color: tileColor,
+              backgroundColor: tileColor,
+              image: `data:image/svg+xml;utf8,${encodeURIComponent(createTileNumberSVG(tileNumber))}`,
               hasGate: false,
             },
             position: { x: i * 60, y: j * 60 },
             locked: true,
-          });
-
-          // Add tile number as background image
-          const newNode = cy.getElementById(nodeId);
-          newNode.style({
-            "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-              createTileNumberSVG(tileNumber),
-            )}`,
-            "background-width": "100%",
-            "background-height": "100%",
-            "background-position": "bottom right",
-            "background-repeat": "no-repeat",
-            "background-clip": "none",
           });
         }
       }
@@ -1056,10 +1039,6 @@ endmodule
     layoutDimensions.x = newX;
     layoutDimensions.y = newY;
     updateLayoutStatus();
-
-    // Re-apply the layout
-    cy.layout({ name: "preset" }).run();
-    cy.fit(cy.elements(), 32);
   }
 
   function createTileNumberSVG(number, gateType, orientation) {
@@ -1354,8 +1333,9 @@ endmodule
         // Remove highlight from source node
         selectedSourceNode.removeClass("highlighted");
 
-        // Update gate labels
-        updateGateLabels();
+        // Only the new gate and its source changed orientation.
+        updateGateLabel(selectedNode);
+        updateGateLabel(selectedSourceNode);
 
         updateMessageArea(
           `${selectedGateType.toUpperCase()} gate placed successfully.`,
@@ -1488,8 +1468,9 @@ endmodule
         selectedSourceNode.removeClass("highlighted");
         selectedSourceNode2.removeClass("highlighted");
 
-        // Update gate labels
-        updateGateLabels();
+        updateGateLabel(selectedNode);
+        updateGateLabel(selectedSourceNode);
+        updateGateLabel(selectedSourceNode2);
 
         updateMessageArea(
           `${selectedGateType.toUpperCase()} gate placed successfully.`,
@@ -1642,14 +1623,13 @@ endmodule
         gateColor = node.data("color");
     }
 
-    // Apply the chosen background color
-    node.style("background-color", gateColor);
+    const tileNumber = node.data("tileNumber");
+    let orientation;
 
     if (gateType === "buf") {
       // Set the label and background image for bufc
       node.data("label", "");
       const nodePosition = node.position();
-      const tileNumber = node.data("tileNumber");
 
       let source = "Middle";
       const inEdges = node
@@ -1686,18 +1666,10 @@ endmodule
         }
       });
 
-      const orientation = source + "To" + target;
-
-      node.style({
-        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-          createTileNumberSVG(tileNumber, gateType, orientation),
-        )}`,
-        "background-fit": "contain", // Ensure the image fits within the node
-      });
+      orientation = source + "To" + target;
     } else if (gateType === "fanout") {
       node.data("label", "");
       const nodePosition = node.position();
-      const tileNumber = node.data("tileNumber");
 
       let source = "Middle";
       const inEdges = node
@@ -1716,44 +1688,14 @@ endmodule
         }
       });
 
-      const orientation = source;
-
-      node.style({
-        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-          createTileNumberSVG(tileNumber, gateType, orientation),
-        )}`,
-        "background-fit": "contain", // Ensure the image fits within the node
-      });
+      orientation = source;
     } else if (gateType === "bufc" || gateType === "bufk") {
       // Set the label and background image for bufc
       node.data("label", "");
-      const tileNumber = node.data("tileNumber");
-      node.style({
-        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-          createTileNumberSVG(tileNumber, gateType),
-        )}`,
-        "background-fit": "contain", // Ensure the image fits within the node
-      });
-    } else {
-      // Ensure the tile number remains visible
-      const tileNumber = node.data("tileNumber");
-      node.style({
-        "background-image": `data:image/svg+xml;utf8,${encodeURIComponent(
-          createTileNumberSVG(tileNumber, gateType),
-        )}`,
-        "background-width": "100%",
-        "background-height": "100%",
-        "background-position": "bottom right",
-        "background-repeat": "no-repeat",
-        "background-clip": "none",
-      });
     }
-  }
-
-  // Update gate labels and colors based on the number of outgoing connections
-  function updateGateLabels() {
-    cy.nodes().forEach((node) => {
-      updateGateLabel(node);
+    node.data({
+      backgroundColor: gateColor,
+      image: `data:image/svg+xml;utf8,${encodeURIComponent(createTileNumberSVG(tileNumber, gateType, orientation))}`,
     });
   }
 
@@ -1791,7 +1733,6 @@ endmodule
           node.data("label", "");
           node.data("gateType", "");
           node.data("hasGate", false);
-          node.style("background-color", node.data("color"));
 
           const inEdges = connectedEdges.filter(
             (edge) => edge.data("target") === node.id(),
@@ -2406,7 +2347,5 @@ endmodule
     }
     node.data("gateType", `${gateType.toUpperCase()}`);
     node.data("hasGate", true);
-
-    updateGateLabel(node);
   }
 });
