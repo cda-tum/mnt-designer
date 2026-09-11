@@ -1,11 +1,14 @@
 import argparse
 import io
 import logging
+import math
 import os
 import re
 import secrets
 import struct
+import subprocess
 import tempfile
+import threading
 import uuid
 import webbrowser
 from collections.abc import Sequence
@@ -16,6 +19,7 @@ from pathlib import Path
 from flask import Flask, cli, jsonify, render_template, request, send_file, session
 from werkzeug.exceptions import RequestEntityTooLarge
 
+from mnt.designer import sidb_design
 from mnt.pyfiction import (
     a_star,
     apply_bestagon_library,
@@ -67,6 +71,9 @@ networks = {}
 # In-memory storage for user verilog
 verilogs = {}
 
+# The server uses one worker; run at most one native gate search at a time.
+sidb_design_lock = threading.Lock()
+
 
 @app.errorhandler(RequestEntityTooLarge)
 def request_too_large(_error):
@@ -83,7 +90,7 @@ def index():
     # Assign a unique session ID if not already present
     if "session_id" not in session:
         session["session_id"] = str(uuid.uuid4())
-    return render_template("index.html")
+    return render_template("index.html", sidb_gate_design_available=sidb_design.available())
 
 
 @app.route("/create_layout", methods=["POST"])
@@ -1133,6 +1140,92 @@ def export_sidb_layout():
 
     except Exception:
         return _internal_error_response()
+
+
+@app.route("/design_sidb_layout", methods=["POST"])
+def design_sidb_layout():
+    if not sidb_design.available():
+        return jsonify(
+            {"success": False, "error": "Upgrade pyfiction to a build with on-the-fly SiDB circuit design."}
+        ), 503
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"success": False, "error": "Expected JSON gate-design settings."}), 400
+    count = data.get("number_of_canvas_sidbs", 3)
+    mode = data.get("design_mode", "QUICKCELL")
+    export_format = data.get("export_format", "svg")
+    if type(count) is not int or not 1 <= count <= 3:
+        return jsonify({"success": False, "error": "Choose between 1 and 3 canvas SiDBs per gate."}), 400
+    if mode not in sidb_design.MODES or export_format not in ("svg", "sqd"):
+        return jsonify({"success": False, "error": "Unsupported gate-design method or export format."}), 400
+    epsilon_r = data.get("epsilon_r", 5.6)
+    lambda_tf = data.get("lambda_tf", 5.0)
+    mu_minus = data.get("mu_minus", -0.32)
+    base = data.get("base", 3)
+    try:
+        finite_parameters = all(
+            type(value) in (int, float) and math.isfinite(value) for value in (epsilon_r, lambda_tf, mu_minus)
+        )
+    except OverflowError:
+        finite_parameters = False
+    if not finite_parameters or epsilon_r <= 0 or lambda_tf <= 0:
+        return jsonify(
+            {
+                "success": False,
+                "error": "Physical parameters must be finite numbers; permittivity and screening length must be positive.",
+            }
+        ), 400
+    if type(base) is not int or base not in (2, 3):
+        return jsonify({"success": False, "error": "Choose 2 or 3 charge states."}), 400
+
+    layout = layouts.get(session.get("session_id"))
+    if layout is None or not layout.num_pis() or not layout.num_pos():
+        return jsonify({"success": False, "error": "Create a connected layout with inputs and outputs first."}), 400
+    if not sidb_design_lock.acquire(blocking=False):
+        return jsonify(
+            {"success": False, "error": "Another SiDB gate design is running. Try again when it finishes."}
+        ), 409
+    try:
+        return _send_layout_file(
+            layout,
+            sidb_design.write_layout,
+            f"layout_sidb_designed.{export_format}",
+            "image/svg+xml" if export_format == "svg" else "application/xml",
+            count,
+            mode,
+            epsilon_r,
+            lambda_tf,
+            mu_minus,
+            base,
+        )
+    except subprocess.TimeoutExpired:
+        return jsonify(
+            {
+                "success": False,
+                "error": "Gate design reached the 60-second limit. Try fewer canvas SiDBs or random search.",
+            }
+        ), 504
+    except subprocess.CalledProcessError as error:
+        if error.returncode == 2:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "No SiDB circuit could be designed with these settings. Try another SiDB count or search method; some gate types and orientations are unsupported.",
+                }
+            ), 422
+        if error.returncode == 3:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "The layout has design-rule errors. Check and repair the layout before designing SiDB gates.",
+                }
+            ), 422
+        return _internal_error_response(), 500
+    except Exception:
+        return _internal_error_response(), 500
+    finally:
+        sidb_design_lock.release()
 
 
 @app.route("/import_layout", methods=["POST"])

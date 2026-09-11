@@ -246,4 +246,87 @@ context.subject.replaceEditorCode("unsaved circuit");
     assert.equal(editor.getValue(), "unsaved circuit", "failed export must preserve editor contents");
   }
   console.log("PASS: JSON and HTTP export failures preserve the page/editor and restore the export button");
+
+  const values = {
+    "#sidb-canvas-count": "3", "#sidb-design-mode": "QUICKCELL", "#sidb-export-format": "svg",
+    "#sidb-epsilon-r": "5.6", "#sidb-lambda-tf": "5.0", "#sidb-mu-minus": "-0.32", "#sidb-charge-base": "3",
+  };
+  const button = { disabled: false }, controls = Object.keys(values).map(() => ({ disabled: false }));
+  const downloads = [], requests = [];
+  let submit, validatePositive, formValid = false, running = false, finishRequest, feedback;
+  const form = { reportValidity: () => formValid, querySelectorAll: () => controls };
+  const gateDesign = {
+    $: (selector) => ({
+      on(_event, callback) {
+        if (selector === "#sidb-gate-design-form") submit = callback;
+        if (selector === "#sidb-epsilon-r, #sidb-lambda-tf") validatePositive = callback;
+      },
+      val: () => values[selector],
+      removeClass() { running = true; }, addClass() { running = false; },
+    }),
+    document: {
+      getElementById(id) { assert.equal(id, "run-sidb-gate-design"); return button; },
+      createElement: () => ({ click() { downloads.push(this.download); }, remove() {} }),
+      body: { appendChild() {} },
+    },
+    URL: { createObjectURL: () => "blob:designed-layout", revokeObjectURL() {} },
+    setTimeout(callback) { callback(); },
+    updateMessageArea(message, type) { feedback = { message, type }; },
+    updateLayout() { assert.fail("gate design must not overwrite the editable layout"); },
+    fetch(route, options) {
+      assert.equal(route, "/design_sidb_layout");
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers["Content-Type"], "application/json");
+      requests.push(JSON.parse(options.body));
+      return new Promise((resolve) => { finishRequest = resolve; });
+    },
+  };
+  vm.runInNewContext(exportCode, gateDesign);
+  for (const value of [0, -1, NaN, 5.6, 1e-9]) {
+    let validationMessage;
+    validatePositive.call({ valueAsNumber: value, setCustomValidity(message) { validationMessage = message; } });
+    assert.equal(validationMessage, value > 0 ? "" : "Enter a value greater than zero.");
+  }
+  const clickDesign = () => submit.call(form, { preventDefault() {} });
+  await clickDesign();
+  assert.equal(requests.length, 0, "invalid input must not submit a search");
+  formValid = true;
+  button.disabled = true;
+  await clickDesign();
+  assert.equal(requests.length, 0, "unavailable gate design must not submit a search");
+  button.disabled = false;
+
+  for (const outcome of ["error", "svg", "sqd"]) {
+    values["#sidb-export-format"] = outcome === "error" ? "svg" : outcome;
+    values["#sidb-design-mode"] = outcome === "sqd" ? "RANDOM" : outcome === "error" ? "AUTOMATIC_EXHAUSTIVE_GATE_DESIGNER" : "QUICKCELL";
+    values["#sidb-canvas-count"] = outcome === "error" ? "1" : "3";
+    if (outcome === "sqd") Object.assign(values, {
+      "#sidb-epsilon-r": "6.2", "#sidb-lambda-tf": "7.0", "#sidb-mu-minus": "-2.8e-1", "#sidb-charge-base": "2",
+    });
+    const request = clickDesign();
+    assert.equal(button.disabled, true);
+    assert.ok(controls.every((control) => control.disabled));
+    assert.equal(running, true);
+    const count = requests.length;
+    await clickDesign();
+    assert.equal(requests.length, count, "a duplicate click must not start another search");
+    assert.deepEqual(requests.at(-1), {
+      number_of_canvas_sidbs: Number(values["#sidb-canvas-count"]),
+      design_mode: values["#sidb-design-mode"], export_format: values["#sidb-export-format"],
+      epsilon_r: outcome === "sqd" ? 6.2 : 5.6, lambda_tf: outcome === "sqd" ? 7 : 5,
+      mu_minus: outcome === "sqd" ? -0.28 : -0.32, base: outcome === "sqd" ? 2 : 3,
+    });
+    finishRequest(outcome === "error"
+      ? { ok: false, status: 400, headers: { get: () => "application/json" }, json: async () => ({ success: false, error: "No SiDB implementation found." }) }
+      : { ok: true, headers: { get: () => "application/octet-stream" }, blob: async () => ({}) });
+    await request;
+    assert.equal(button.disabled, false);
+    assert.ok(controls.every((control) => !control.disabled));
+    assert.equal(running, false);
+    assert.equal(feedback.type, outcome === "error" ? "danger" : "success");
+    if (outcome === "error") assert.match(feedback.message, /No SiDB implementation found/);
+    else assert.equal(downloads.at(-1), `layout_sidb_designed.${outcome}`);
+  }
+  assert.equal(downloads.length, 2);
+  console.log("PASS: SiDB design validates inputs, blocks duplicate searches, restores controls on errors, and downloads SVG/SiQAD without changing the layout");
 })().catch((error) => { console.error(error); process.exitCode = 1; });

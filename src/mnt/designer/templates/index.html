@@ -179,7 +179,11 @@
                   <li><button type="button" id="export-dot-layout-button" class="dropdown-item">DOT layout <span class="export-format">.dot</span></button></li>
                   <li><hr class="dropdown-divider" /></li>
                   <li><button type="button" id="export-qca-layout-button" class="dropdown-item">QCA cell layout <span class="export-format">.svg</span></button></li>
-                  <li><button type="button" id="export-sidb-layout-button" class="dropdown-item">Hexagonal SiDB layout <span class="export-format">.svg</span></button></li>
+                  <li><button type="button" id="export-sidb-layout-button" class="dropdown-item">SiDB layout (Bestagon) <span class="export-format">.svg</span></button></li>
+                  <li><button type="button" id="sidb-gate-design-button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#sidbGateDesignModal" {% if not sidb_gate_design_available %}disabled aria-describedby="sidb-gate-design-unavailable"{% endif %}>Design SiDB gates…</button></li>
+                  {% if not sidb_gate_design_available %}
+                  <li><p id="sidb-gate-design-unavailable" class="dropdown-item-text small text-muted mb-0">Gate design requires pyfiction 0.9.0 or newer. Upgrade pyfiction and restart Designer.</p></li>
+                  {% endif %}
                 </ul>
               </div>
             </div>
@@ -1230,6 +1234,76 @@
             >
               Optimize
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="sidbGateDesignModal" tabindex="-1" aria-labelledby="sidbGateDesignModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 class="modal-title" id="sidbGateDesignModalLabel">Design SiDB gates</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>Search for SiDB gate implementations for your layout instead of using the fixed Bestagon library.</p>
+            <form id="sidb-gate-design-form">
+              <div class="mb-4">
+                <label for="sidb-canvas-count" class="form-label">SiDBs in each gate's design canvas</label>
+                <input type="number" id="sidb-canvas-count" class="form-control" min="1" max="3" step="1" value="3" required aria-describedby="sidb-canvas-count-help" />
+                <small id="sidb-canvas-count-help" class="form-text text-muted">Choose 1–3. More SiDBs increase the search space.</small>
+              </div>
+              <div class="mb-4">
+                <label for="sidb-design-mode" class="form-label">Search method</label>
+                <select id="sidb-design-mode" class="form-select" required>
+                  <option value="QUICKCELL" selected>QuickCell</option>
+                  <option value="AUTOMATIC_EXHAUSTIVE_GATE_DESIGNER">Exhaustive search</option>
+                  <option value="RANDOM">Random search</option>
+                </select>
+              </div>
+              <fieldset class="mb-4" aria-describedby="sidb-physical-parameters-help">
+                <legend class="form-label">Physical parameters</legend>
+                <div class="row g-3">
+                  <div class="col-sm-6">
+                    <label for="sidb-epsilon-r" class="form-label">Relative permittivity εᵣ</label>
+                    <input type="number" id="sidb-epsilon-r" class="form-control" min="0" step="any" value="5.6" required />
+                  </div>
+                  <div class="col-sm-6">
+                    <label for="sidb-lambda-tf" class="form-label">Screening length λ (nm)</label>
+                    <input type="number" id="sidb-lambda-tf" class="form-control" min="0" step="any" value="5.0" required />
+                  </div>
+                  <div class="col-sm-6">
+                    <label for="sidb-mu-minus" class="form-label">Transition energy μ₋ (eV)</label>
+                    <input type="number" id="sidb-mu-minus" class="form-control" step="any" value="-0.32" required />
+                  </div>
+                  <div class="col-sm-6">
+                    <label for="sidb-charge-base" class="form-label">Charge states</label>
+                    <select id="sidb-charge-base" class="form-select" required>
+                      <option value="2">2: negative, neutral</option>
+                      <option value="3" selected>3: negative, neutral, positive</option>
+                    </select>
+                  </div>
+                </div>
+                <small id="sidb-physical-parameters-help" class="form-text text-muted d-block mt-2">Starts with fiction's defaults. Changing these values also searches for crossings and double wires instead of using predefined implementations.</small>
+              </fieldset>
+              <div class="mb-4">
+                <label for="sidb-export-format" class="form-label">Download format</label>
+                <select id="sidb-export-format" class="form-select" required>
+                  <option value="svg" selected>SVG image (.svg)</option>
+                  <option value="sqd">SiQAD layout (.sqd)</option>
+                </select>
+              </div>
+            </form>
+            <p class="small text-muted">Uses a snapshot of your layout when started; you can keep editing. Search is limited to 60 seconds and may not find a solution. Closing this dialog does not cancel the search.</p>
+          </div>
+          <div class="modal-footer">
+            <div id="sidb-design-running" class="w-100 d-none" role="status">
+              <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Designing gates… The download will start when ready.
+            </div>
+            <div class="modal-status alert w-100 d-none" role="alert"></div>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" form="sidb-gate-design-form" id="run-sidb-gate-design" class="btn btn-primary" {% if not sidb_gate_design_available %}disabled{% endif %}>Design &amp; download</button>
           </div>
         </div>
       </div>

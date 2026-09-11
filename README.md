@@ -41,7 +41,7 @@ Related publication presented at DATE: [paper](https://www.cda.cit.tum.de/files/
 
 # Usage of MNT Designer
 
-MNT Designer supports Python 3.11–3.14 and uses [pyfiction](https://pypi.org/project/mnt.pyfiction/) 0.8.0 or newer.
+MNT Designer supports Python 3.11–3.14 and uses [pyfiction](https://pypi.org/project/mnt.pyfiction/) 0.9.0 or newer.
 Create a virtual environment using your Python installation:
 
 ```console
@@ -63,6 +63,23 @@ Use `--help` to see the options, or choose another port and open the browser you
 ```console
 $ mnt-designer --port 5053 --no-browser
 ```
+
+## SiDB gate design
+
+Choose **Export → Design SiDB gates…** to synthesize SiDB implementations for the current gate-level layout.
+Designer converts the layout to hexagonal form and offers SVG or SiQAD (`.sqd`) downloads. The gate-level layout and
+Verilog remain unchanged. **SiDB layout (Bestagon)** exports the predefined Bestagon library without a gate search.
+
+The search defaults to QuickCell with three canvas SiDBs per gate. You can choose one to three SiDBs or use exhaustive or
+random search. Physical parameters are adjustable: relative permittivity εᵣ (default 5.6), Thomas–Fermi screening length
+λTF (5.0 nm), charge-transition energy μ₋ (−0.32 eV), and two or three charge states (default three).
+Designer uses the default Bestagon canvas and predefined complex gates where possible at the default physical settings.
+Changing any physical parameter also searches for crossings and double wires under those conditions, using three canvas
+SiDBs for these complex gates. QuickCell and exhaustive search stop after the first solution; random search evaluates at
+most 10,000 candidates per gate. Some gate types and orientations are unsupported, and a search may find no implementation.
+Designer runs one search at a time in a separate process, stops it after 60 seconds, and discards incomplete results.
+Closing the settings dialog does not cancel the search. Editing can continue; the download uses the layout snapshot
+taken when the search started.
 
 ## Development
 
