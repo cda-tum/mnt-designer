@@ -103,7 +103,6 @@ def test_exports_and_fgl_roundtrip(placed, tmp_path, monkeypatch):
     assert placed.get("/get_layout").get_json() == original
 
 
-@pytest.mark.skipif(not designer.sidb_design.available(), reason="pyfiction lacks on-the-fly circuit-design bindings")
 @pytest.mark.parametrize("export_format", ["svg", "sqd"])
 def test_sidb_circuit_design_exports_snapshot(placed, export_format):
     original = placed.get("/get_layout").get_json()

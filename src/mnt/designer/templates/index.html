@@ -182,7 +182,7 @@
                   <li><button type="button" id="export-sidb-layout-button" class="dropdown-item">SiDB layout (Bestagon) <span class="export-format">.svg</span></button></li>
                   <li><button type="button" id="sidb-gate-design-button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#sidbGateDesignModal" {% if not sidb_gate_design_available %}disabled aria-describedby="sidb-gate-design-unavailable"{% endif %}>Design SiDB gates…</button></li>
                   {% if not sidb_gate_design_available %}
-                  <li><p id="sidb-gate-design-unavailable" class="dropdown-item-text small text-muted mb-0">Gate design requires a newer pyfiction build with on-the-fly SiDB support, not included in 0.8.0. Upgrade pyfiction and restart Designer.</p></li>
+                  <li><p id="sidb-gate-design-unavailable" class="dropdown-item-text small text-muted mb-0">Gate design requires pyfiction 0.9.0 or newer. Upgrade pyfiction and restart Designer.</p></li>
                   {% endif %}
                 </ul>
               </div>

@@ -41,7 +41,7 @@ Related publication presented at DATE: [paper](https://www.cda.cit.tum.de/files/
 
 # Usage of MNT Designer
 
-MNT Designer supports Python 3.11–3.14 and uses [pyfiction](https://pypi.org/project/mnt.pyfiction/) 0.8.0 or newer.
+MNT Designer supports Python 3.11–3.14 and uses [pyfiction](https://pypi.org/project/mnt.pyfiction/) 0.9.0 or newer.
 Create a virtual environment using your Python installation:
 
 ```console
@@ -69,10 +69,6 @@ $ mnt-designer --port 5053 --no-browser
 Choose **Export → Design SiDB gates…** to synthesize SiDB implementations for the current gate-level layout.
 Designer converts the layout to hexagonal form and offers SVG or SiQAD (`.sqd`) downloads. The gate-level layout and
 Verilog remain unchanged. **SiDB layout (Bestagon)** exports the predefined Bestagon library without a gate search.
-
-Gate design requires a pyfiction build providing `on_the_fly_sidb_circuit_design` and its parameter bindings.
-The published pyfiction 0.8.0 does not include these bindings; Designer disables this action when they are missing.
-The other Designer features remain available.
 
 The search defaults to QuickCell with three canvas SiDBs per gate. You can choose one to three SiDBs or use exhaustive or
 random search. Designer uses the default Bestagon canvas and physical parameters, and predefined complex gates where
