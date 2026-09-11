@@ -2243,6 +2243,9 @@ endmodule
   });
 
   // On-the-fly SiDB gate design uses a server-side layout snapshot.
+  $("#sidb-epsilon-r, #sidb-lambda-tf").on("input", function () {
+    this.setCustomValidity(this.valueAsNumber > 0 ? "" : "Enter a value greater than zero.");
+  });
   $("#sidb-gate-design-form").on("submit", async function (event) {
     event.preventDefault();
     const button = document.getElementById("run-sidb-gate-design");
@@ -2251,6 +2254,10 @@ endmodule
       number_of_canvas_sidbs: Number($("#sidb-canvas-count").val()),
       design_mode: $("#sidb-design-mode").val(),
       export_format: $("#sidb-export-format").val(),
+      epsilon_r: Number($("#sidb-epsilon-r").val()),
+      lambda_tf: Number($("#sidb-lambda-tf").val()),
+      mu_minus: Number($("#sidb-mu-minus").val()),
+      base: Number($("#sidb-charge-base").val()),
     };
     const filename = `layout_sidb_designed.${params.export_format}`;
     const controls = this.querySelectorAll("input, select");

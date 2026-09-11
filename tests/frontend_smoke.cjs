@@ -249,14 +249,18 @@ context.subject.replaceEditorCode("unsaved circuit");
 
   const values = {
     "#sidb-canvas-count": "3", "#sidb-design-mode": "QUICKCELL", "#sidb-export-format": "svg",
+    "#sidb-epsilon-r": "5.6", "#sidb-lambda-tf": "5.0", "#sidb-mu-minus": "-0.32", "#sidb-charge-base": "3",
   };
-  const button = { disabled: false }, controls = [{ disabled: false }, { disabled: false }, { disabled: false }];
+  const button = { disabled: false }, controls = Object.keys(values).map(() => ({ disabled: false }));
   const downloads = [], requests = [];
-  let submit, formValid = false, running = false, finishRequest, feedback;
+  let submit, validatePositive, formValid = false, running = false, finishRequest, feedback;
   const form = { reportValidity: () => formValid, querySelectorAll: () => controls };
   const gateDesign = {
     $: (selector) => ({
-      on(_event, callback) { if (selector === "#sidb-gate-design-form") submit = callback; },
+      on(_event, callback) {
+        if (selector === "#sidb-gate-design-form") submit = callback;
+        if (selector === "#sidb-epsilon-r, #sidb-lambda-tf") validatePositive = callback;
+      },
       val: () => values[selector],
       removeClass() { running = true; }, addClass() { running = false; },
     }),
@@ -278,6 +282,11 @@ context.subject.replaceEditorCode("unsaved circuit");
     },
   };
   vm.runInNewContext(exportCode, gateDesign);
+  for (const value of [0, -1, NaN, 5.6, 1e-9]) {
+    let validationMessage;
+    validatePositive.call({ valueAsNumber: value, setCustomValidity(message) { validationMessage = message; } });
+    assert.equal(validationMessage, value > 0 ? "" : "Enter a value greater than zero.");
+  }
   const clickDesign = () => submit.call(form, { preventDefault() {} });
   await clickDesign();
   assert.equal(requests.length, 0, "invalid input must not submit a search");
@@ -291,6 +300,9 @@ context.subject.replaceEditorCode("unsaved circuit");
     values["#sidb-export-format"] = outcome === "error" ? "svg" : outcome;
     values["#sidb-design-mode"] = outcome === "sqd" ? "RANDOM" : outcome === "error" ? "AUTOMATIC_EXHAUSTIVE_GATE_DESIGNER" : "QUICKCELL";
     values["#sidb-canvas-count"] = outcome === "error" ? "1" : "3";
+    if (outcome === "sqd") Object.assign(values, {
+      "#sidb-epsilon-r": "6.2", "#sidb-lambda-tf": "7.0", "#sidb-mu-minus": "-2.8e-1", "#sidb-charge-base": "2",
+    });
     const request = clickDesign();
     assert.equal(button.disabled, true);
     assert.ok(controls.every((control) => control.disabled));
@@ -301,6 +313,8 @@ context.subject.replaceEditorCode("unsaved circuit");
     assert.deepEqual(requests.at(-1), {
       number_of_canvas_sidbs: Number(values["#sidb-canvas-count"]),
       design_mode: values["#sidb-design-mode"], export_format: values["#sidb-export-format"],
+      epsilon_r: outcome === "sqd" ? 6.2 : 5.6, lambda_tf: outcome === "sqd" ? 7 : 5,
+      mu_minus: outcome === "sqd" ? -0.28 : -0.32, base: outcome === "sqd" ? 2 : 3,
     });
     finishRequest(outcome === "error"
       ? { ok: false, status: 400, headers: { get: () => "application/json" }, json: async () => ({ success: false, error: "No SiDB implementation found." }) }

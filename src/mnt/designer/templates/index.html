@@ -1240,7 +1240,7 @@
     </div>
 
     <div class="modal fade" id="sidbGateDesignModal" tabindex="-1" aria-labelledby="sidbGateDesignModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
             <h2 class="modal-title" id="sidbGateDesignModalLabel">Design SiDB gates</h2>
@@ -1262,6 +1262,31 @@
                   <option value="RANDOM">Random search</option>
                 </select>
               </div>
+              <fieldset class="mb-4" aria-describedby="sidb-physical-parameters-help">
+                <legend class="form-label">Physical parameters</legend>
+                <div class="row g-3">
+                  <div class="col-sm-6">
+                    <label for="sidb-epsilon-r" class="form-label">Relative permittivity εᵣ</label>
+                    <input type="number" id="sidb-epsilon-r" class="form-control" min="0" step="any" value="5.6" required />
+                  </div>
+                  <div class="col-sm-6">
+                    <label for="sidb-lambda-tf" class="form-label">Screening length λ (nm)</label>
+                    <input type="number" id="sidb-lambda-tf" class="form-control" min="0" step="any" value="5.0" required />
+                  </div>
+                  <div class="col-sm-6">
+                    <label for="sidb-mu-minus" class="form-label">Transition energy μ₋ (eV)</label>
+                    <input type="number" id="sidb-mu-minus" class="form-control" step="any" value="-0.32" required />
+                  </div>
+                  <div class="col-sm-6">
+                    <label for="sidb-charge-base" class="form-label">Charge states</label>
+                    <select id="sidb-charge-base" class="form-select" required>
+                      <option value="2">2: negative, neutral</option>
+                      <option value="3" selected>3: negative, neutral, positive</option>
+                    </select>
+                  </div>
+                </div>
+                <small id="sidb-physical-parameters-help" class="form-text text-muted d-block mt-2">Starts with fiction's defaults. Changing these values also searches for crossings and double wires instead of using predefined implementations.</small>
+              </fieldset>
               <div class="mb-4">
                 <label for="sidb-export-format" class="form-label">Download format</label>
                 <select id="sidb-export-format" class="form-select" required>
