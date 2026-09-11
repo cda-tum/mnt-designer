@@ -2202,18 +2202,10 @@ endmodule
   });
 
   // Export Layout
-  const exportFormats = {
-    "export-fgl-layout-button": ["/export_layout", "layout.fgl"],
-    "export-dot-layout-button": ["/export_dot_layout", "layout.dot"],
-    "export-qca-layout-button": ["/export_qca_layout", "layout_qca.svg"],
-    "export-sidb-layout-button": ["/export_sidb_layout", "layout_sidb.svg"],
-  };
-  $(Object.keys(exportFormats).map((id) => `#${id}`).join(",")).on("click", async function () {
-    const [route, filename] = exportFormats[this.id];
-    this.disabled = true;
+  async function downloadLayout(route, filename, options) {
     let objectUrl;
     try {
-      const response = await fetch(route);
+      const response = await fetch(route, options);
       if (response.headers.get("content-type")?.includes("application/json")) {
         const result = await response.json();
         throw new Error(result.error || "The layout could not be exported.");
@@ -2226,12 +2218,59 @@ endmodule
       document.body.appendChild(link);
       link.click();
       link.remove();
+    } finally {
+      if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
+  }
+
+  const exportFormats = {
+    "export-fgl-layout-button": ["/export_layout", "layout.fgl"],
+    "export-dot-layout-button": ["/export_dot_layout", "layout.dot"],
+    "export-qca-layout-button": ["/export_qca_layout", "layout_qca.svg"],
+    "export-sidb-layout-button": ["/export_sidb_layout", "layout_sidb.svg"],
+  };
+  $(Object.keys(exportFormats).map((id) => `#${id}`).join(",")).on("click", async function () {
+    const [route, filename] = exportFormats[this.id];
+    this.disabled = true;
+    try {
+      await downloadLayout(route, filename);
       updateMessageArea(`Download started: ${filename}.`, "success");
     } catch (error) {
       updateMessageArea("Could not export layout: " + error.message, "danger");
     } finally {
       this.disabled = false;
-      if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
+  });
+
+  // On-the-fly SiDB gate design uses a server-side layout snapshot.
+  $("#sidb-gate-design-form").on("submit", async function (event) {
+    event.preventDefault();
+    const button = document.getElementById("run-sidb-gate-design");
+    if (button.disabled || !this.reportValidity()) return;
+    const params = {
+      number_of_canvas_sidbs: Number($("#sidb-canvas-count").val()),
+      design_mode: $("#sidb-design-mode").val(),
+      export_format: $("#sidb-export-format").val(),
+    };
+    const filename = `layout_sidb_designed.${params.export_format}`;
+    const controls = this.querySelectorAll("input, select");
+    button.disabled = true;
+    controls.forEach((control) => { control.disabled = true; });
+    $("#sidb-design-running").removeClass("d-none");
+    updateMessageArea("Designing SiDB gates for your layout snapshot. Search is limited to 60 seconds.", "info");
+    try {
+      await downloadLayout("/design_sidb_layout", filename, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      });
+      updateMessageArea(`Download started: ${filename}. Your current layout was not replaced.`, "success");
+    } catch (error) {
+      updateMessageArea("Could not design SiDB gates: " + error.message, "danger");
+    } finally {
+      button.disabled = false;
+      controls.forEach((control) => { control.disabled = false; });
+      $("#sidb-design-running").addClass("d-none");
     }
   });
 

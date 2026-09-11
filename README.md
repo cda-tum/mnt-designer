@@ -64,6 +64,24 @@ Use `--help` to see the options, or choose another port and open the browser you
 $ mnt-designer --port 5053 --no-browser
 ```
 
+## SiDB gate design
+
+Choose **Export → Design SiDB gates…** to synthesize SiDB implementations for the current gate-level layout.
+Designer converts the layout to hexagonal form and offers SVG or SiQAD (`.sqd`) downloads. The gate-level layout and
+Verilog remain unchanged. **SiDB layout (Bestagon)** exports the predefined Bestagon library without a gate search.
+
+Gate design requires a pyfiction build providing `on_the_fly_sidb_circuit_design` and its parameter bindings.
+The published pyfiction 0.8.0 does not include these bindings; Designer disables this action when they are missing.
+The other Designer features remain available.
+
+The search defaults to QuickCell with three canvas SiDBs per gate. You can choose one to three SiDBs or use exhaustive or
+random search. Designer uses the default Bestagon canvas and physical parameters, and predefined complex gates where
+possible. QuickCell and exhaustive search stop after the first solution; random search evaluates at most 10,000
+candidates per gate. Some gate types and orientations are unsupported, and a search may find no implementation.
+Designer runs one search at a time in a separate process, stops it after 60 seconds, and discards incomplete results.
+Closing the settings dialog does not cancel the search. Editing can continue; the download uses the layout snapshot
+taken when the search started.
+
 ## Development
 
 Clone the repository and install it in a Python 3.11+ virtual environment:

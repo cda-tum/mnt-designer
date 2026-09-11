@@ -246,4 +246,73 @@ context.subject.replaceEditorCode("unsaved circuit");
     assert.equal(editor.getValue(), "unsaved circuit", "failed export must preserve editor contents");
   }
   console.log("PASS: JSON and HTTP export failures preserve the page/editor and restore the export button");
+
+  const values = {
+    "#sidb-canvas-count": "3", "#sidb-design-mode": "QUICKCELL", "#sidb-export-format": "svg",
+  };
+  const button = { disabled: false }, controls = [{ disabled: false }, { disabled: false }, { disabled: false }];
+  const downloads = [], requests = [];
+  let submit, formValid = false, running = false, finishRequest, feedback;
+  const form = { reportValidity: () => formValid, querySelectorAll: () => controls };
+  const gateDesign = {
+    $: (selector) => ({
+      on(_event, callback) { if (selector === "#sidb-gate-design-form") submit = callback; },
+      val: () => values[selector],
+      removeClass() { running = true; }, addClass() { running = false; },
+    }),
+    document: {
+      getElementById(id) { assert.equal(id, "run-sidb-gate-design"); return button; },
+      createElement: () => ({ click() { downloads.push(this.download); }, remove() {} }),
+      body: { appendChild() {} },
+    },
+    URL: { createObjectURL: () => "blob:designed-layout", revokeObjectURL() {} },
+    setTimeout(callback) { callback(); },
+    updateMessageArea(message, type) { feedback = { message, type }; },
+    updateLayout() { assert.fail("gate design must not overwrite the editable layout"); },
+    fetch(route, options) {
+      assert.equal(route, "/design_sidb_layout");
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers["Content-Type"], "application/json");
+      requests.push(JSON.parse(options.body));
+      return new Promise((resolve) => { finishRequest = resolve; });
+    },
+  };
+  vm.runInNewContext(exportCode, gateDesign);
+  const clickDesign = () => submit.call(form, { preventDefault() {} });
+  await clickDesign();
+  assert.equal(requests.length, 0, "invalid input must not submit a search");
+  formValid = true;
+  button.disabled = true;
+  await clickDesign();
+  assert.equal(requests.length, 0, "unavailable gate design must not submit a search");
+  button.disabled = false;
+
+  for (const outcome of ["error", "svg", "sqd"]) {
+    values["#sidb-export-format"] = outcome === "error" ? "svg" : outcome;
+    values["#sidb-design-mode"] = outcome === "sqd" ? "RANDOM" : outcome === "error" ? "AUTOMATIC_EXHAUSTIVE_GATE_DESIGNER" : "QUICKCELL";
+    values["#sidb-canvas-count"] = outcome === "error" ? "1" : "3";
+    const request = clickDesign();
+    assert.equal(button.disabled, true);
+    assert.ok(controls.every((control) => control.disabled));
+    assert.equal(running, true);
+    const count = requests.length;
+    await clickDesign();
+    assert.equal(requests.length, count, "a duplicate click must not start another search");
+    assert.deepEqual(requests.at(-1), {
+      number_of_canvas_sidbs: Number(values["#sidb-canvas-count"]),
+      design_mode: values["#sidb-design-mode"], export_format: values["#sidb-export-format"],
+    });
+    finishRequest(outcome === "error"
+      ? { ok: false, status: 400, headers: { get: () => "application/json" }, json: async () => ({ success: false, error: "No SiDB implementation found." }) }
+      : { ok: true, headers: { get: () => "application/octet-stream" }, blob: async () => ({}) });
+    await request;
+    assert.equal(button.disabled, false);
+    assert.ok(controls.every((control) => !control.disabled));
+    assert.equal(running, false);
+    assert.equal(feedback.type, outcome === "error" ? "danger" : "success");
+    if (outcome === "error") assert.match(feedback.message, /No SiDB implementation found/);
+    else assert.equal(downloads.at(-1), `layout_sidb_designed.${outcome}`);
+  }
+  assert.equal(downloads.length, 2);
+  console.log("PASS: SiDB design validates inputs, blocks duplicate searches, restores controls on errors, and downloads SVG/SiQAD without changing the layout");
 })().catch((error) => { console.error(error); process.exitCode = 1; });
