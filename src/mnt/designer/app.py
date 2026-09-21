@@ -1146,7 +1146,10 @@ def export_sidb_layout():
 def design_sidb_layout():
     if not sidb_design.available():
         return jsonify(
-            {"success": False, "error": "Upgrade pyfiction to a build with on-the-fly SiDB circuit design."}
+            {
+                "success": False,
+                "error": "Upgrade pyfiction to a build with timeout-enabled on-the-fly SiDB circuit design.",
+            }
         ), 503
 
     data = request.get_json(silent=True)
@@ -1199,14 +1202,14 @@ def design_sidb_layout():
             mu_minus,
             base,
         )
-    except subprocess.TimeoutExpired:
-        return jsonify(
-            {
-                "success": False,
-                "error": "Gate design reached the 60-second limit. Try fewer canvas SiDBs or random search.",
-            }
-        ), 504
-    except subprocess.CalledProcessError as error:
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+        if isinstance(error, subprocess.TimeoutExpired) or error.returncode == 4:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Gate design exceeded its time budget. Try fewer canvas SiDBs or random search.",
+                }
+            ), 504
         if error.returncode == 2:
             return jsonify(
                 {

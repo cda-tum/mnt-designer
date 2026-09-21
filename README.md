@@ -77,9 +77,10 @@ Designer uses the default Bestagon canvas and predefined complex gates where pos
 Changing any physical parameter also searches for crossings and double wires under those conditions, using three canvas
 SiDBs for these complex gates. QuickCell and exhaustive search stop after the first solution; random search evaluates at
 most 10,000 candidates per gate. Some gate types and orientations are unsupported, and a search may find no implementation.
-Designer runs one search at a time in a separate process, stops it after 60 seconds, and discards incomplete results.
+Designer runs one search at a time in a separate process. The native search has a 55-second budget; Designer kills the
+process after 60 seconds if it has not exited. Both limits discard incomplete results.
 Closing the settings dialog does not cancel the search. Editing can continue; the download uses the layout snapshot
-taken when the search started.
+cloned before serialization when the search started.
 
 ## Development
 

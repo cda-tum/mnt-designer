@@ -12,9 +12,9 @@ TIMEOUT_SECONDS = 60
 
 
 def available() -> bool:
-    """Whether the installed pyfiction provides circuit-design bindings."""
+    """Whether pyfiction provides circuit design with a native timeout."""
     return hasattr(fiction, "on_the_fly_sidb_circuit_design") and hasattr(
-        fiction, "on_the_fly_sidb_circuit_design_params"
+        getattr(fiction, "on_the_fly_sidb_circuit_design_params", None), "timeout"
     )
 
 
@@ -30,7 +30,8 @@ def write_layout(
 ) -> None:
     """Export a snapshot and isolate the native search in a killable process."""
     source = Path(filename).with_name("input.fgl")
-    fiction.write_fgl_layout(layout, str(source))
+    # The native writer releases the GIL; isolate the snapshot before editing can resume.
+    fiction.write_fgl_layout(layout.clone(), str(source))
     subprocess.run(
         [
             sys.executable,
@@ -70,6 +71,8 @@ def main() -> int:
     try:
         hex_layout = fiction.hexagonalization(layout)
         params = fiction.on_the_fly_sidb_circuit_design_params()
+        # Leave time for worker startup and export within the hard process limit.
+        params.timeout = (TIMEOUT_SECONDS - 5) * 1000
         library_params = params.sidb_on_the_fly_gate_library_parameters
         gate_params = library_params.design_gate_params
         gate_params.number_of_canvas_sidbs = args.count
@@ -85,6 +88,8 @@ def main() -> int:
                 )
             setattr(physical, name, value)
         circuit = fiction.on_the_fly_sidb_circuit_design(hex_layout, params)
+    except TimeoutError:
+        return 4
     except (RuntimeError, ValueError):
         return 2
     if Path(args.output).suffix == ".sqd":
