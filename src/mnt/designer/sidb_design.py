@@ -9,6 +9,8 @@ import mnt.pyfiction as fiction
 
 MODES = ("QUICKCELL", "AUTOMATIC_EXHAUSTIVE_GATE_DESIGNER", "RANDOM")
 TIMEOUT_SECONDS = 60
+TIMEOUT_GRACE_SECONDS = 5
+MAX_TIMEOUT_MS = (TIMEOUT_SECONDS - TIMEOUT_GRACE_SECONDS) * 1000
 
 
 def available() -> bool:
@@ -27,6 +29,7 @@ def write_layout(
     lambda_tf: float,
     mu_minus: float,
     base: int,
+    timeout: int = MAX_TIMEOUT_MS,
 ) -> None:
     """Export a snapshot and isolate the native search in a killable process."""
     source = Path(filename).with_name("input.fgl")
@@ -45,9 +48,10 @@ def write_layout(
             f"--lambda-tf={lambda_tf}",
             f"--mu-minus={mu_minus}",
             f"--base={base}",
+            f"--timeout={timeout}",
         ],
         check=True,
-        timeout=TIMEOUT_SECONDS,
+        timeout=timeout / 1000 + TIMEOUT_GRACE_SECONDS,
         capture_output=True,
     )
 
@@ -63,7 +67,12 @@ def main() -> int:
     parser.add_argument("--lambda-tf", type=float, default=5.0)
     parser.add_argument("--mu-minus", type=float, default=-0.32)
     parser.add_argument("--base", type=int, choices=(2, 3), default=3)
+    parser.add_argument(
+        "--timeout", type=int, default=MAX_TIMEOUT_MS, help="Whole-circuit search budget in milliseconds"
+    )
     args = parser.parse_args()
+    if not 1 <= args.timeout <= MAX_TIMEOUT_MS:
+        parser.error(f"timeout must be between 1 and {MAX_TIMEOUT_MS} milliseconds")
     layout = fiction.read_cartesian_fgl_layout(args.source)
     _, errors = fiction.gate_level_drvs(layout, print_report=False)
     if errors:
@@ -71,8 +80,8 @@ def main() -> int:
     try:
         hex_layout = fiction.hexagonalization(layout)
         params = fiction.on_the_fly_sidb_circuit_design_params()
-        # Leave time for worker startup and export within the hard process limit.
-        params.timeout = (TIMEOUT_SECONDS - 5) * 1000
+        # One native deadline covers all gates and their nested simulations.
+        params.timeout = args.timeout
         library_params = params.sidb_on_the_fly_gate_library_parameters
         gate_params = library_params.design_gate_params
         gate_params.number_of_canvas_sidbs = args.count

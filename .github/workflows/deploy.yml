@@ -48,10 +48,16 @@ jobs:
       - name: Check wheel
         run: pipx run twine check dist/*.whl
       - name: Install and test wheel
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: "2"
         run: |
-          python -m pip install --verbose pytest dist/*.whl
+          if [ "${{ github.event_name }}" = "release" ]; then
+            python -m pip install --verbose pytest dist/*.whl
+            python -m pip check
+          else
+            pipx run uv pip install --python "$(command -v python)" --override requirements-fiction-main.txt pytest dist/*.whl
+          fi
           python -m pytest
-          python -m pip check
           mnt-designer --help
           mnt.designer --help
       - if: github.event_name == 'release'
@@ -80,10 +86,16 @@ jobs:
       - name: Check source distribution
         run: pipx run twine check dist/*.tar.gz
       - name: Install and test source distribution
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: "2"
         run: |
-          python -m pip install --verbose pytest dist/*.tar.gz
+          if [ "${{ github.event_name }}" = "release" ]; then
+            python -m pip install --verbose pytest dist/*.tar.gz
+            python -m pip check
+          else
+            pipx run uv pip install --python "$(command -v python)" --override requirements-fiction-main.txt pytest dist/*.tar.gz
+          fi
           python -m pytest
-          python -m pip check
           mnt-designer --help
           mnt.designer --help
       - if: github.event_name == 'release'

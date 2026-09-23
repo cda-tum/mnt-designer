@@ -2258,13 +2258,14 @@ endmodule
       lambda_tf: Number($("#sidb-lambda-tf").val()),
       mu_minus: Number($("#sidb-mu-minus").val()),
       base: Number($("#sidb-charge-base").val()),
+      timeout: Number($("#sidb-timeout").val()) * 1000,
     };
     const filename = `layout_sidb_designed.${params.export_format}`;
     const controls = this.querySelectorAll("input, select");
     button.disabled = true;
     controls.forEach((control) => { control.disabled = true; });
     $("#sidb-design-running").removeClass("d-none");
-    updateMessageArea("Designing SiDB gates for your layout snapshot. Search is limited to 60 seconds.", "info");
+    updateMessageArea(`Designing SiDB gates for your layout snapshot. Search budget: ${params.timeout / 1000} s.`, "info");
     try {
       await downloadLayout("/design_sidb_layout", filename, {
         method: "POST",

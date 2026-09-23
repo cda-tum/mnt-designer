@@ -138,13 +138,15 @@ def test_sidb_snapshot_isolated_from_edits_during_serialization(placed, monkeypa
     assert layout.get_input_name(0) == "edited_after_start"
 
 
-@pytest.mark.parametrize("settings", [{}, {"epsilon_r": 6.2, "lambda_tf": 4.2, "mu_minus": -1e-7, "base": 2}])
+@pytest.mark.parametrize(
+    "settings", [{}, {"epsilon_r": 6.2, "lambda_tf": 4.2, "mu_minus": -1e-7, "base": 2, "timeout": 12000}]
+)
 def test_sidb_physical_settings_reach_native_api(placed, monkeypatch, settings):
     received = {}
     fiction = designer.sidb_design.fiction
 
     def inspect_parameters(_layout, params):
-        assert 0 < params.timeout < designer.sidb_design.TIMEOUT_SECONDS * 1000
+        received["timeout"] = params.timeout
         library = params.sidb_on_the_fly_gate_library_parameters
         physical = library.design_gate_params.operational_params.simulation_parameters
         received.update({name: getattr(physical, name) for name in ("epsilon_r", "lambda_tf", "mu_minus", "base")})
@@ -156,7 +158,8 @@ def test_sidb_physical_settings_reach_native_api(placed, monkeypatch, settings):
         assert library.using_predefined_crossing_and_double_wire_if_possible == expected_policy
         raise ValueError("Stop after inspecting the native parameters")
 
-    def run_worker(command, **_kwargs):
+    def run_worker(command, **kwargs):
+        assert kwargs["timeout"] == settings.get("timeout", 55000) / 1000 + 5
         monkeypatch.setattr(sys, "argv", command[2:])
         assert designer.sidb_design.main() == 2
         raise subprocess.CalledProcessError(2, command)
@@ -164,15 +167,21 @@ def test_sidb_physical_settings_reach_native_api(placed, monkeypatch, settings):
     monkeypatch.setattr(fiction, "on_the_fly_sidb_circuit_design", inspect_parameters)
     monkeypatch.setattr(designer.sidb_design.subprocess, "run", run_worker)
     assert placed.post("/design_sidb_layout", json=settings).status_code == 422
-    assert received == (settings or {"epsilon_r": 5.6, "lambda_tf": 5.0, "mu_minus": -0.32, "base": 3})
+    assert received == (
+        settings or {"epsilon_r": 5.6, "lambda_tf": 5.0, "mu_minus": -0.32, "base": 3, "timeout": 55000}
+    )
 
 
-def test_sidb_native_timeout_returns_gateway_timeout(placed, monkeypatch):
+@pytest.mark.parametrize("scope", ["circuit", "gate"])
+def test_sidb_native_timeout_returns_gateway_timeout(placed, monkeypatch, scope):
     fiction = designer.sidb_design.fiction
     design_circuit = fiction.on_the_fly_sidb_circuit_design
 
     def expire_immediately(layout, params):
-        params.timeout = 0
+        if scope == "circuit":
+            params.timeout = 0
+        else:
+            params.sidb_on_the_fly_gate_library_parameters.design_gate_params.operational_params.timeout = 0
         return design_circuit(layout, params)
 
     def run_worker(command, **_kwargs):
@@ -186,6 +195,8 @@ def test_sidb_native_timeout_returns_gateway_timeout(placed, monkeypatch):
     response = placed.post("/design_sidb_layout", json={})
     assert response.status_code == 504
     assert response.get_json()["success"] is False
+    assert not designer.sidb_design_lock.locked()
+    assert placed.get("/export_sidb_layout").status_code == 200
 
 
 def test_sidb_design_requires_native_timeout(placed, monkeypatch):
@@ -228,6 +239,13 @@ def test_sidb_design_missing_capability_layout_and_busy(placed, monkeypatch):
         {"base": True},
         {"base": 2.0},
         {"base": "2"},
+        {"timeout": 0},
+        {"timeout": -1},
+        {"timeout": 55001},
+        {"timeout": True},
+        {"timeout": "1000"},
+        {"timeout": 1.5},
+        {"timeout": None},
     ],
 )
 def test_sidb_design_rejects_invalid_settings(placed, monkeypatch, settings):

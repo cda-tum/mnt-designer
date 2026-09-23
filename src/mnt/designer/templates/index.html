@@ -1262,6 +1262,11 @@
                   <option value="RANDOM">Random search</option>
                 </select>
               </div>
+              <div class="mb-4">
+                <label for="sidb-timeout" class="form-label">Search timeout (seconds)</label>
+                <input type="number" id="sidb-timeout" class="form-control" min="1" max="{{ sidb_timeout_seconds }}" step="1" value="{{ sidb_timeout_seconds }}" required aria-describedby="sidb-timeout-help" />
+                <small id="sidb-timeout-help" class="form-text text-muted">One shared budget for the whole circuit, including all gate searches and simulations. Maximum {{ sidb_timeout_seconds }} seconds.</small>
+              </div>
               <fieldset class="mb-4" aria-describedby="sidb-physical-parameters-help">
                 <legend class="form-label">Physical parameters</legend>
                 <div class="row g-3">
@@ -1295,7 +1300,7 @@
                 </select>
               </div>
             </form>
-            <p class="small text-muted">Uses a snapshot of your layout when started; you can keep editing. Search is limited to 60 seconds and may not find a solution. Closing this dialog does not cancel the search.</p>
+            <p class="small text-muted">Uses a snapshot of your layout when started; you can keep editing. A timed-out search returns no partial circuit. Designer allows five extra seconds for worker startup and export before stopping the process. Closing this dialog does not cancel the search.</p>
           </div>
           <div class="modal-footer">
             <div id="sidb-design-running" class="w-100 d-none" role="status">

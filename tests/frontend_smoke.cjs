@@ -250,6 +250,7 @@ context.subject.replaceEditorCode("unsaved circuit");
   const values = {
     "#sidb-canvas-count": "3", "#sidb-design-mode": "QUICKCELL", "#sidb-export-format": "svg",
     "#sidb-epsilon-r": "5.6", "#sidb-lambda-tf": "5.0", "#sidb-mu-minus": "-0.32", "#sidb-charge-base": "3",
+    "#sidb-timeout": "55",
   };
   const button = { disabled: false }, controls = Object.keys(values).map(() => ({ disabled: false }));
   const downloads = [], requests = [];
@@ -302,6 +303,7 @@ context.subject.replaceEditorCode("unsaved circuit");
     values["#sidb-canvas-count"] = outcome === "error" ? "1" : "3";
     if (outcome === "sqd") Object.assign(values, {
       "#sidb-epsilon-r": "6.2", "#sidb-lambda-tf": "7.0", "#sidb-mu-minus": "-2.8e-1", "#sidb-charge-base": "2",
+      "#sidb-timeout": "12",
     });
     const request = clickDesign();
     assert.equal(button.disabled, true);
@@ -315,6 +317,7 @@ context.subject.replaceEditorCode("unsaved circuit");
       design_mode: values["#sidb-design-mode"], export_format: values["#sidb-export-format"],
       epsilon_r: outcome === "sqd" ? 6.2 : 5.6, lambda_tf: outcome === "sqd" ? 7 : 5,
       mu_minus: outcome === "sqd" ? -0.28 : -0.32, base: outcome === "sqd" ? 2 : 3,
+      timeout: outcome === "sqd" ? 12000 : 55000,
     });
     finishRequest(outcome === "error"
       ? { ok: false, status: 400, headers: { get: () => "application/json" }, json: async () => ({ success: false, error: "No SiDB implementation found." }) }

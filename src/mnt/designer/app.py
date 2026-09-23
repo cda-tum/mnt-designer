@@ -90,7 +90,11 @@ def index():
     # Assign a unique session ID if not already present
     if "session_id" not in session:
         session["session_id"] = str(uuid.uuid4())
-    return render_template("index.html", sidb_gate_design_available=sidb_design.available())
+    return render_template(
+        "index.html",
+        sidb_gate_design_available=sidb_design.available(),
+        sidb_timeout_seconds=sidb_design.MAX_TIMEOUT_MS // 1000,
+    )
 
 
 @app.route("/create_layout", methods=["POST"])
@@ -1158,10 +1162,18 @@ def design_sidb_layout():
     count = data.get("number_of_canvas_sidbs", 3)
     mode = data.get("design_mode", "QUICKCELL")
     export_format = data.get("export_format", "svg")
+    timeout = data.get("timeout", sidb_design.MAX_TIMEOUT_MS)
     if type(count) is not int or not 1 <= count <= 3:
         return jsonify({"success": False, "error": "Choose between 1 and 3 canvas SiDBs per gate."}), 400
     if mode not in sidb_design.MODES or export_format not in ("svg", "sqd"):
         return jsonify({"success": False, "error": "Unsupported gate-design method or export format."}), 400
+    if type(timeout) is not int or not 1 <= timeout <= sidb_design.MAX_TIMEOUT_MS:
+        return jsonify(
+            {
+                "success": False,
+                "error": f"Search timeout must be between 1 and {sidb_design.MAX_TIMEOUT_MS} milliseconds.",
+            }
+        ), 400
     epsilon_r = data.get("epsilon_r", 5.6)
     lambda_tf = data.get("lambda_tf", 5.0)
     mu_minus = data.get("mu_minus", -0.32)
@@ -1201,6 +1213,7 @@ def design_sidb_layout():
             lambda_tf,
             mu_minus,
             base,
+            timeout,
         )
     except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
         if isinstance(error, subprocess.TimeoutExpired) or error.returncode == 4:
