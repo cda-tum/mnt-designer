@@ -2,6 +2,8 @@
 
 import io
 import struct
+import subprocess
+import sys
 from importlib.metadata import version
 from xml.etree import ElementTree
 
@@ -100,6 +102,181 @@ def test_exports_and_fgl_roundtrip(placed, tmp_path, monkeypatch):
     imported = placed.post("/import_layout", data={"file": (io.BytesIO(exports["/export_layout"]), "example.fgl")})
     assert imported.get_json()["success"]
     assert placed.get("/get_layout").get_json() == original
+
+
+@pytest.mark.parametrize("export_format", ["svg", "sqd"])
+def test_sidb_circuit_design_exports_snapshot(placed, export_format):
+    original = placed.get("/get_layout").get_json()
+    settings = {"export_format": export_format}
+    if export_format == "sqd":
+        settings.update(epsilon_r=5.7, lambda_tf=5.1, mu_minus=-0.31, base=2)
+    response = placed.post("/design_sidb_layout", json=settings)
+    assert response.status_code == 200, response.get_json()
+    assert f"layout_sidb_designed.{export_format}" in response.headers["Content-Disposition"]
+    root = ElementTree.fromstring(response.data)
+    assert root.tag.endswith("svg") if export_format == "svg" else root.tag == "siqad"
+    assert placed.get("/get_layout").get_json() == original
+    assert placed.get("/get_verilog_code").get_json()["code"] == VERILOG
+
+
+def test_sidb_snapshot_isolated_from_edits_during_serialization(placed, monkeypatch, tmp_path):
+    with placed.session_transaction() as session:
+        layout = designer.layouts[session["session_id"]]
+    fiction = designer.sidb_design.fiction
+    original_name = layout.get_input_name(0)
+    write_fgl = fiction.write_fgl_layout
+
+    def edit_during_serialization(snapshot, filename):
+        layout.set_input_name(0, "edited_after_start")
+        write_fgl(snapshot, filename)
+
+    monkeypatch.setattr(fiction, "write_fgl_layout", edit_during_serialization)
+    monkeypatch.setattr(designer.sidb_design.subprocess, "run", lambda *_args, **_kwargs: None)
+    designer.sidb_design.write_layout(layout, str(tmp_path / "layout.svg"), 3, "QUICKCELL", 5.6, 5.0, -0.32, 3)
+    snapshot = fiction.read_cartesian_fgl_layout(str(tmp_path / "input.fgl"))
+    assert snapshot.get_input_name(0) == original_name
+    assert layout.get_input_name(0) == "edited_after_start"
+
+
+@pytest.mark.parametrize(
+    "settings", [{}, {"epsilon_r": 6.2, "lambda_tf": 4.2, "mu_minus": -1e-7, "base": 2, "timeout": 12000}]
+)
+def test_sidb_physical_settings_reach_native_api(placed, monkeypatch, settings):
+    received = {}
+    fiction = designer.sidb_design.fiction
+
+    def inspect_parameters(_layout, params):
+        received["timeout"] = params.timeout
+        library = params.sidb_on_the_fly_gate_library_parameters
+        physical = library.design_gate_params.operational_params.simulation_parameters
+        received.update({name: getattr(physical, name) for name in ("epsilon_r", "lambda_tf", "mu_minus", "base")})
+        expected_policy = (
+            fiction.sidb_complex_gate_design_policy.DESIGN_ON_THE_FLY
+            if settings
+            else fiction.sidb_complex_gate_design_policy.USING_PREDEFINED
+        )
+        assert library.using_predefined_crossing_and_double_wire_if_possible == expected_policy
+        raise ValueError("Stop after inspecting the native parameters")
+
+    def run_worker(command, **kwargs):
+        assert kwargs["timeout"] == settings.get("timeout", 55000) / 1000 + 5
+        monkeypatch.setattr(sys, "argv", command[2:])
+        assert designer.sidb_design.main() == 2
+        raise subprocess.CalledProcessError(2, command)
+
+    monkeypatch.setattr(fiction, "on_the_fly_sidb_circuit_design", inspect_parameters)
+    monkeypatch.setattr(designer.sidb_design.subprocess, "run", run_worker)
+    assert placed.post("/design_sidb_layout", json=settings).status_code == 422
+    assert received == (
+        settings or {"epsilon_r": 5.6, "lambda_tf": 5.0, "mu_minus": -0.32, "base": 3, "timeout": 55000}
+    )
+
+
+@pytest.mark.parametrize("scope", ["circuit", "gate"])
+def test_sidb_native_timeout_returns_gateway_timeout(placed, monkeypatch, scope):
+    fiction = designer.sidb_design.fiction
+    design_circuit = fiction.on_the_fly_sidb_circuit_design
+
+    def expire_immediately(layout, params):
+        if scope == "circuit":
+            params.timeout = 0
+        else:
+            params.sidb_on_the_fly_gate_library_parameters.design_gate_params.operational_params.timeout = 0
+        return design_circuit(layout, params)
+
+    def run_worker(command, **_kwargs):
+        monkeypatch.setattr(sys, "argv", command[2:])
+        exit_code = designer.sidb_design.main()
+        assert exit_code != 0
+        raise subprocess.CalledProcessError(exit_code, command)
+
+    monkeypatch.setattr(fiction, "on_the_fly_sidb_circuit_design", expire_immediately)
+    monkeypatch.setattr(designer.sidb_design.subprocess, "run", run_worker)
+    response = placed.post("/design_sidb_layout", json={})
+    assert response.status_code == 504
+    assert response.get_json()["success"] is False
+    assert not designer.sidb_design_lock.locked()
+    assert placed.get("/export_sidb_layout").status_code == 200
+
+
+def test_sidb_design_requires_native_timeout(placed, monkeypatch):
+    monkeypatch.setattr(designer.sidb_design.fiction, "on_the_fly_sidb_circuit_design_params", object)
+    assert not designer.sidb_design.available()
+    assert placed.post("/design_sidb_layout", json={}).status_code == 503
+
+
+def test_sidb_design_missing_capability_layout_and_busy(placed, monkeypatch):
+    monkeypatch.setattr(designer.sidb_design, "available", lambda: False)
+    assert placed.post("/design_sidb_layout", json={}).status_code == 503
+    monkeypatch.setattr(designer.sidb_design, "available", lambda: True)
+    with designer.app.test_client() as other:
+        assert other.post("/design_sidb_layout", json={}).status_code == 400
+    with designer.sidb_design_lock:
+        assert placed.post("/design_sidb_layout", json={}).status_code == 409
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        [],
+        {"number_of_canvas_sidbs": True},
+        {"number_of_canvas_sidbs": "1"},
+        {"number_of_canvas_sidbs": 0},
+        {"number_of_canvas_sidbs": 4},
+        {"design_mode": "PRUNING_ONLY"},
+        {"design_mode": []},
+        {"export_format": "../layout"},
+        {"epsilon_r": 0},
+        {"lambda_tf": -1},
+        {"lambda_tf": None},
+        {"epsilon_r": True},
+        {"mu_minus": "-0.32"},
+        {"mu_minus": []},
+        {"mu_minus": float("inf")},
+        {"mu_minus": float("nan")},
+        {"epsilon_r": 10**400},
+        {"base": 4},
+        {"base": True},
+        {"base": 2.0},
+        {"base": "2"},
+        {"timeout": 0},
+        {"timeout": -1},
+        {"timeout": 55001},
+        {"timeout": True},
+        {"timeout": "1000"},
+        {"timeout": 1.5},
+        {"timeout": None},
+    ],
+)
+def test_sidb_design_rejects_invalid_settings(placed, monkeypatch, settings):
+    monkeypatch.setattr(designer.sidb_design, "available", lambda: True)
+    response = placed.post("/design_sidb_layout", json=settings)
+    assert response.status_code == 400
+    assert response.get_json()["success"] is False
+
+
+@pytest.mark.parametrize("exit_code,status", [(2, 422), (3, 422), (4, 504), (1, 500), (None, 504)])
+def test_sidb_design_failure_releases_lock_and_preserves_layout(placed, monkeypatch, tmp_path, exit_code, status):
+    original = placed.get("/get_layout").get_json()
+    monkeypatch.setattr(designer.sidb_design, "available", lambda: True)
+    monkeypatch.setattr(designer.tempfile, "tempdir", str(tmp_path))
+
+    def fail(command, **kwargs):
+        assert kwargs["timeout"] == 60
+        assert kwargs["check"]
+        if exit_code is None:
+            raise subprocess.TimeoutExpired(command, 60)
+        raise subprocess.CalledProcessError(exit_code, command, stderr=b"private details")
+
+    monkeypatch.setattr(designer.sidb_design.subprocess, "run", fail)
+    response = placed.post("/design_sidb_layout", json={})
+    assert response.status_code == status
+    assert response.get_json()["success"] is False
+    assert b"private details" not in response.data
+    assert not designer.sidb_design_lock.locked()
+    assert not list(tmp_path.iterdir())
+    assert placed.get("/get_layout").get_json() == original
+    assert placed.get("/export_sidb_layout").status_code == 200
 
 
 def test_missing_layout_exports_and_session_isolation(placed):
