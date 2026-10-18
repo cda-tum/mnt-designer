@@ -41,7 +41,7 @@ Related publication presented at DATE: [paper](https://www.cda.cit.tum.de/files/
 
 # Usage of MNT Designer
 
-MNT Designer supports Python 3.11–3.14 and uses [pyfiction](https://pypi.org/project/mnt.pyfiction/) 0.9.0 or newer.
+MNT Designer supports Python 3.11–3.14 and uses the published [pyfiction](https://pypi.org/project/mnt.pyfiction/) 0.8.0 package.
 Create a virtual environment using your Python installation:
 
 ```console
@@ -64,10 +64,18 @@ Use `--help` to see the options, or choose another port and open the browser you
 $ mnt-designer --port 5053 --no-browser
 ```
 
-FGL downloads use fiction's version-2 format, which requires a complete, physically valid layout.
-Legacy FGL files can still be imported and edited; repair incomplete connections or design-rule errors before exporting.
-
 ## SiDB gate design
+
+This optional feature needs a source build of pyfiction at
+[`509b20aa`](https://github.com/cda-tum/fiction/commit/509b20aa86e4fc24f71cad8f8d38eb5c4d72823c), the commit that introduced
+shared design timeouts. Standard installs use pyfiction 0.8.0 and provide all other tools, including Bestagon export.
+To enable gate design, clone this repository and run this in your virtual environment, then restart Designer:
+
+```console
+$ uv pip install --override requirements-sidb-design.txt -e '.[test]'
+```
+
+This opt-in build requires a C++20 compiler. The pin deliberately excludes later, incompatible Python API changes.
 
 Choose **Export → Design SiDB gates…** to synthesize SiDB implementations for the current gate-level layout.
 Designer converts the layout to hexagonal form and offers SVG or SiQAD (`.sqd`) downloads. The gate-level layout and
@@ -102,16 +110,9 @@ $ mnt-designer
 The editable installation is needed to share the `mnt` namespace with pyfiction; setting `PYTHONPATH` alone is not sufficient.
 Run the repository checks with `pre-commit run --all-files` after installing [pre-commit](https://pre-commit.com/).
 
-Until pyfiction 0.9.0 is published, use the pinned fiction `main` commit for development:
-
-```console
-$ uv pip install --override requirements-fiction-main.txt -e '.[test]'
-```
-
-This compiles pyfiction and requires a C++20 compiler. The override intentionally replaces the unreleased dependency
-floor with a development build; it does not change Designer's package metadata. Non-release CI uses the same pin.
-Release CI installs from PyPI without the override and checks all declared dependencies. Remove the override once
-pyfiction 0.9.0 is available.
+Package CI tests the published pyfiction 0.8.0 dependency. A separate integration job builds the optional SiDB pin
+and checks native gate design and timeout handling. The native gate-design tests skip when that capability is absent;
+the remaining tests run with either build.
 
 ## Hosting notes
 

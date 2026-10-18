@@ -1,2 +1,0 @@
-# Development/CI override until the timeout API is released in pyfiction 0.9.0.
-mnt.pyfiction @ git+https://github.com/cda-tum/fiction.git@946b2635c18e555f52546e76ea087ae55d266b65
