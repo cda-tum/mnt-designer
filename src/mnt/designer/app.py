@@ -1215,6 +1215,8 @@ def design_sidb_layout():
             base,
             timeout,
         )
+    except sidb_design.InvalidLayoutError as error:
+        return jsonify({"success": False, "error": str(error)}), 422
     except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
         if isinstance(error, subprocess.TimeoutExpired) or error.returncode == 4:
             return jsonify(

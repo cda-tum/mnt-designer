@@ -125,18 +125,54 @@ def test_sidb_circuit_design_exports_snapshot(placed, export_format):
 
 
 @requires_sidb_design
-def test_sidb_snapshot_isolated_from_edits_during_serialization(placed, monkeypatch, tmp_path):
+@pytest.mark.parametrize("invalid_layout,message", [("clocking", "2DDWave"), ("disconnected", "design-rule")])
+def test_sidb_design_rejects_layout_before_serialization(placed, tmp_path, monkeypatch, invalid_layout, message):
+    fiction = designer.sidb_design.fiction
+    if invalid_layout == "clocking":
+        layout = fiction.cartesian_gate_layout((3, 1, 0), "USE")
+        source = layout.create_pi("a", (3, 1, 0))
+        wire = layout.create_buf(source, (2, 1, 0))
+        inverter = layout.create_not(wire, (1, 1, 0))
+        layout.create_po(inverter, "y", (0, 1, 0))
+        path = tmp_path / "use.fgl"
+        fiction.write_fgl_layout(layout, str(path))
+        response = placed.post("/import_layout", data={"file": (io.BytesIO(path.read_bytes()), "use.fgl")})
+        assert response.get_json()["success"]
+        assert post(placed, "/check_design_rules")["errors"] == 0
+    else:
+        gate = next(gate for gate in placed.get("/get_layout").get_json()["gates"] if gate["type"] == "and")
+        post(placed, "/delete_gate", {"x": gate["x"], "y": gate["y"]})
+        assert post(placed, "/check_design_rules")["errors"] > 0
+    original = placed.get("/get_layout").get_json()
+
+    def unexpected_work(*_args, **_kwargs):
+        pytest.fail("Invalid layouts must be rejected before serialization or gate design")
+
+    monkeypatch.setattr(fiction, "write_fgl_layout", unexpected_work)
+    monkeypatch.setattr(designer.sidb_design.subprocess, "run", unexpected_work)
+    response = placed.post("/design_sidb_layout", json={})
+    assert response.status_code == 422
+    assert message in response.get_json()["error"]
+    assert "Content-Disposition" not in response.headers
+    assert not designer.sidb_design_lock.locked()
+    assert placed.get("/get_layout").get_json() == original
+    assert placed.get("/get_verilog_code").get_json()["code"] == VERILOG
+
+
+@requires_sidb_design
+@pytest.mark.parametrize("native_operation", ["gate_level_drvs", "write_fgl_layout"])
+def test_sidb_snapshot_isolated_from_edits(placed, monkeypatch, tmp_path, native_operation):
     with placed.session_transaction() as session:
         layout = designer.layouts[session["session_id"]]
     fiction = designer.sidb_design.fiction
     original_name = layout.get_input_name(0)
-    write_fgl = fiction.write_fgl_layout
+    operation = getattr(fiction, native_operation)
 
-    def edit_during_serialization(snapshot, filename):
+    def edit_during_operation(snapshot, *args, **kwargs):
         layout.set_input_name(0, "edited_after_start")
-        write_fgl(snapshot, filename)
+        return operation(snapshot, *args, **kwargs)
 
-    monkeypatch.setattr(fiction, "write_fgl_layout", edit_during_serialization)
+    monkeypatch.setattr(fiction, native_operation, edit_during_operation)
     monkeypatch.setattr(designer.sidb_design.subprocess, "run", lambda *_args, **_kwargs: None)
     designer.sidb_design.write_layout(layout, str(tmp_path / "layout.svg"), 3, "QUICKCELL", 5.6, 5.0, -0.32, 3)
     snapshot = fiction.read_cartesian_fgl_layout(str(tmp_path / "input.fgl"))

@@ -13,6 +13,20 @@ TIMEOUT_GRACE_SECONDS = 5
 MAX_TIMEOUT_MS = (TIMEOUT_SECONDS - TIMEOUT_GRACE_SECONDS) * 1000
 
 
+class InvalidLayoutError(ValueError):
+    """The layout cannot safely be converted to an SiDB circuit."""
+
+
+def _validate_layout(layout: fiction.cartesian_gate_layout) -> None:
+    if not layout.is_clocking_scheme("2DDWAVE"):
+        raise InvalidLayoutError("SiDB gate design requires a 2DDWave-clocked layout.")
+    _, errors = fiction.gate_level_drvs(layout, print_report=False)
+    if errors:
+        raise InvalidLayoutError(
+            "The layout has design-rule errors. Check and repair the layout before designing SiDB gates."
+        )
+
+
 def available() -> bool:
     """Whether pyfiction provides circuit design with a native timeout."""
     return hasattr(fiction, "on_the_fly_sidb_circuit_design") and hasattr(
@@ -33,8 +47,10 @@ def write_layout(
 ) -> None:
     """Export a snapshot and isolate the native search in a killable process."""
     source = Path(filename).with_name("input.fgl")
-    # The native writer releases the GIL; isolate the snapshot before editing can resume.
-    fiction.write_fgl_layout(layout.clone(), str(source))
+    # Native validation and writing release the GIL; validate the same isolated snapshot that is written.
+    snapshot = layout.clone()
+    _validate_layout(snapshot)
+    fiction.write_fgl_layout(snapshot, str(source))
     subprocess.run(
         [
             sys.executable,
@@ -74,8 +90,10 @@ def main() -> int:
     if not 1 <= args.timeout <= MAX_TIMEOUT_MS:
         parser.error(f"timeout must be between 1 and {MAX_TIMEOUT_MS} milliseconds")
     layout = fiction.read_cartesian_fgl_layout(args.source)
-    _, errors = fiction.gate_level_drvs(layout, print_report=False)
-    if errors:
+    try:
+        _validate_layout(layout)
+    except InvalidLayoutError as error:
+        print(error, file=sys.stderr)
         return 3
     try:
         hex_layout = fiction.hexagonalization(layout)

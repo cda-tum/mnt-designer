@@ -78,6 +78,7 @@ $ uv pip install --override requirements-sidb-design.txt -e '.[test]'
 This opt-in build requires a C++20 compiler. The pin deliberately excludes later, incompatible Python API changes.
 
 Choose **Export → Design SiDB gates…** to synthesize SiDB implementations for the current gate-level layout.
+Gate design requires 2DDWave clocking and a layout without design-rule errors.
 Designer converts the layout to hexagonal form and offers SVG or SiQAD (`.sqd`) downloads. The gate-level layout and
 Verilog remain unchanged. **SiDB layout (Bestagon)** exports the predefined Bestagon library without a gate search.
 
