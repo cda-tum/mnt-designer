@@ -49,9 +49,9 @@ jobs:
         run: pipx run twine check dist/*.whl
       - name: Install and test wheel
         run: |
-          python -m pip install --verbose pytest dist/*.whl
-          python -m pytest
+          python -m pip install --verbose --only-binary=mnt.pyfiction pytest dist/*.whl
           python -m pip check
+          python -m pytest
           mnt-designer --help
           mnt.designer --help
       - if: github.event_name == 'release'
@@ -81,9 +81,9 @@ jobs:
         run: pipx run twine check dist/*.tar.gz
       - name: Install and test source distribution
         run: |
-          python -m pip install --verbose pytest dist/*.tar.gz
-          python -m pytest
+          python -m pip install --verbose --only-binary=mnt.pyfiction pytest dist/*.tar.gz
           python -m pip check
+          python -m pytest
           mnt-designer --help
           mnt.designer --help
       - if: github.event_name == 'release'
@@ -92,6 +92,27 @@ jobs:
           name: artifact-sdist
           path: dist/*.tar.gz
           if-no-files-found: error
+
+  sidb_integration:
+    name: Optional SiDB gate design
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Install timeout-enabled pyfiction and test Designer
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: "2"
+        run: |
+          pipx run uv pip install --python "$(command -v python)" --override requirements-sidb-design.txt -e '.[test]'
+          python -c "from mnt.designer.sidb_design import available; assert available(), 'Native SiDB timeout API is missing'"
+          python -m pytest
 
   upload_pypi:
     if: github.event_name == 'release' && github.event.action == 'published'
@@ -102,7 +123,7 @@ jobs:
       url: https://pypi.org/p/mnt.designer
     permissions:
       id-token: write
-    needs: [quality, build_wheel, build_sdist]
+    needs: [quality, build_wheel, build_sdist, sidb_integration]
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:

@@ -41,7 +41,7 @@ Related publication presented at DATE: [paper](https://www.cda.cit.tum.de/files/
 
 # Usage of MNT Designer
 
-MNT Designer supports Python 3.11–3.14 and uses [pyfiction](https://pypi.org/project/mnt.pyfiction/) 0.8.0 or newer.
+MNT Designer supports Python 3.11–3.14 and uses the published [pyfiction](https://pypi.org/project/mnt.pyfiction/) 0.8.0 package.
 Create a virtual environment using your Python installation:
 
 ```console
@@ -64,6 +64,38 @@ Use `--help` to see the options, or choose another port and open the browser you
 $ mnt-designer --port 5053 --no-browser
 ```
 
+## SiDB gate design
+
+This optional feature needs a source build of pyfiction at
+[`509b20aa`](https://github.com/cda-tum/fiction/commit/509b20aa86e4fc24f71cad8f8d38eb5c4d72823c), the commit that introduced
+shared design timeouts. Standard installs use pyfiction 0.8.0 and provide all other tools, including Bestagon export.
+To enable gate design, clone this repository and run this in your virtual environment, then restart Designer:
+
+```console
+$ uv pip install --override requirements-sidb-design.txt -e '.[test]'
+```
+
+This opt-in build requires a C++20 compiler. The pin deliberately excludes later, incompatible Python API changes.
+
+Choose **Export → Design SiDB gates…** to synthesize SiDB implementations for the current gate-level layout.
+Gate design requires 2DDWave clocking and a layout without design-rule errors.
+Designer converts the layout to hexagonal form and offers SVG or SiQAD (`.sqd`) downloads. The gate-level layout and
+Verilog remain unchanged. **SiDB layout (Bestagon)** exports the predefined Bestagon library without a gate search.
+
+The search defaults to QuickCell with three canvas SiDBs per gate. You can choose one to three SiDBs or use exhaustive or
+random search. Physical parameters are adjustable: relative permittivity εᵣ (default 5.6), Thomas–Fermi screening length
+λTF (5.0 nm), charge-transition energy μ₋ (−0.32 eV), and two or three charge states (default three).
+Designer uses the default Bestagon canvas and predefined complex gates where possible at the default physical settings.
+Changing any physical parameter also searches for crossings and double wires under those conditions, using three canvas
+SiDBs for these complex gates. QuickCell and exhaustive search stop after the first solution; random search evaluates at
+most 10,000 candidates per gate. Some gate types and orientations are unsupported, and a search may find no implementation.
+Designer runs one search at a time in a separate process. Choose a search timeout of 1–55 seconds (default 55).
+Fiction shares this budget across the whole circuit, including all gate searches and nested simulations; it does not
+restart the budget for each gate. Native deadline checks are cooperative. Designer allows five extra seconds for worker
+startup and export, then kills the process if it has not exited. Either timeout returns no partial circuit.
+Closing the settings dialog does not cancel the search. Editing can continue; the download uses the layout snapshot
+cloned before serialization when the search started.
+
 ## Development
 
 Clone the repository and install it in a Python 3.11+ virtual environment:
@@ -78,6 +110,10 @@ $ mnt-designer
 
 The editable installation is needed to share the `mnt` namespace with pyfiction; setting `PYTHONPATH` alone is not sufficient.
 Run the repository checks with `pre-commit run --all-files` after installing [pre-commit](https://pre-commit.com/).
+
+Package CI tests the published pyfiction 0.8.0 dependency. A separate integration job builds the optional SiDB pin
+and checks native gate design and timeout handling. The native gate-design tests skip when that capability is absent;
+the remaining tests run with either build.
 
 ## Hosting notes
 
