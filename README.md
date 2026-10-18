@@ -64,6 +64,9 @@ Use `--help` to see the options, or choose another port and open the browser you
 $ mnt-designer --port 5053 --no-browser
 ```
 
+FGL downloads use fiction's version-2 format, which requires a complete, physically valid layout.
+Legacy FGL files can still be imported and edited; repair incomplete connections or design-rule errors before exporting.
+
 ## SiDB gate design
 
 Choose **Export → Design SiDB gates…** to synthesize SiDB implementations for the current gate-level layout.

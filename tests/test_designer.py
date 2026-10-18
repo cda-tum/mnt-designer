@@ -122,20 +122,19 @@ def test_sidb_circuit_design_exports_snapshot(placed, export_format):
 def test_sidb_snapshot_isolated_from_edits_during_serialization(placed, monkeypatch, tmp_path):
     with placed.session_transaction() as session:
         layout = designer.layouts[session["session_id"]]
-    fiction = designer.sidb_design.fiction
-    original_name = layout.get_input_name(0)
-    write_fgl = fiction.write_fgl_layout
+    original_name = layout.get_name(layout.pis()[0])
+    write_fgl = designer.sidb_design.write_fgl_layout
 
     def edit_during_serialization(snapshot, filename):
-        layout.set_input_name(0, "edited_after_start")
+        layout.set_name(layout.pis()[0], "edited_after_start")
         write_fgl(snapshot, filename)
 
-    monkeypatch.setattr(fiction, "write_fgl_layout", edit_during_serialization)
+    monkeypatch.setattr(designer.sidb_design, "write_fgl_layout", edit_during_serialization)
     monkeypatch.setattr(designer.sidb_design.subprocess, "run", lambda *_args, **_kwargs: None)
     designer.sidb_design.write_layout(layout, str(tmp_path / "layout.svg"), 3, "QUICKCELL", 5.6, 5.0, -0.32, 3)
-    snapshot = fiction.read_cartesian_fgl_layout(str(tmp_path / "input.fgl"))
-    assert snapshot.get_input_name(0) == original_name
-    assert layout.get_input_name(0) == "edited_after_start"
+    snapshot = designer.read_fgl_layout(str(tmp_path / "input.fgl"))
+    assert snapshot.get_name(snapshot.pis()[0]) == original_name
+    assert layout.get_name(layout.pis()[0]) == "edited_after_start"
 
 
 @pytest.mark.parametrize(
@@ -143,19 +142,19 @@ def test_sidb_snapshot_isolated_from_edits_during_serialization(placed, monkeypa
 )
 def test_sidb_physical_settings_reach_native_api(placed, monkeypatch, settings):
     received = {}
-    fiction = designer.sidb_design.fiction
+    generators = designer.sidb_design.generators
 
-    def inspect_parameters(_layout, params):
-        received["timeout"] = params.timeout
-        library = params.sidb_on_the_fly_gate_library_parameters
-        physical = library.design_gate_params.operational_params.simulation_parameters
-        received.update({name: getattr(physical, name) for name in ("epsilon_r", "lambda_tf", "mu_minus", "base")})
+    def inspect_parameters(_layout, **params):
+        received.update({name: params[name] for name in ("timeout", "epsilon_r", "lambda_tf", "mu_minus", "base")})
+        assert params["number_of_canvas_sidbs"] == 3
+        assert params["design_mode"] == generators.design_sidb_gates_mode.QUICKCELL
+        assert params["maximal_random_design_attempts"] == 10000
         expected_policy = (
-            fiction.sidb_complex_gate_design_policy.DESIGN_ON_THE_FLY
+            generators.sidb_complex_gate_design_policy.DESIGN_ON_THE_FLY
             if settings
-            else fiction.sidb_complex_gate_design_policy.USING_PREDEFINED
+            else generators.sidb_complex_gate_design_policy.USING_PREDEFINED
         )
-        assert library.using_predefined_crossing_and_double_wire_if_possible == expected_policy
+        assert params["using_predefined_crossing_and_double_wire_if_possible"] == expected_policy
         raise ValueError("Stop after inspecting the native parameters")
 
     def run_worker(command, **kwargs):
@@ -164,7 +163,7 @@ def test_sidb_physical_settings_reach_native_api(placed, monkeypatch, settings):
         assert designer.sidb_design.main() == 2
         raise subprocess.CalledProcessError(2, command)
 
-    monkeypatch.setattr(fiction, "on_the_fly_sidb_circuit_design", inspect_parameters)
+    monkeypatch.setattr(generators, "on_the_fly_sidb_circuit_design", inspect_parameters)
     monkeypatch.setattr(designer.sidb_design.subprocess, "run", run_worker)
     assert placed.post("/design_sidb_layout", json=settings).status_code == 422
     assert received == (
@@ -174,15 +173,12 @@ def test_sidb_physical_settings_reach_native_api(placed, monkeypatch, settings):
 
 @pytest.mark.parametrize("scope", ["circuit", "gate"])
 def test_sidb_native_timeout_returns_gateway_timeout(placed, monkeypatch, scope):
-    fiction = designer.sidb_design.fiction
-    design_circuit = fiction.on_the_fly_sidb_circuit_design
+    generators = designer.sidb_design.generators
+    design_circuit = generators.on_the_fly_sidb_circuit_design
 
-    def expire_immediately(layout, params):
-        if scope == "circuit":
-            params.timeout = 0
-        else:
-            params.sidb_on_the_fly_gate_library_parameters.design_gate_params.operational_params.timeout = 0
-        return design_circuit(layout, params)
+    def expire_immediately(layout, **params):
+        params["timeout" if scope == "circuit" else "design_gate_timeout"] = 0
+        return design_circuit(layout, **params)
 
     def run_worker(command, **_kwargs):
         monkeypatch.setattr(sys, "argv", command[2:])
@@ -190,7 +186,7 @@ def test_sidb_native_timeout_returns_gateway_timeout(placed, monkeypatch, scope)
         assert exit_code != 0
         raise subprocess.CalledProcessError(exit_code, command)
 
-    monkeypatch.setattr(fiction, "on_the_fly_sidb_circuit_design", expire_immediately)
+    monkeypatch.setattr(generators, "on_the_fly_sidb_circuit_design", expire_immediately)
     monkeypatch.setattr(designer.sidb_design.subprocess, "run", run_worker)
     response = placed.post("/design_sidb_layout", json={})
     assert response.status_code == 504
@@ -199,8 +195,8 @@ def test_sidb_native_timeout_returns_gateway_timeout(placed, monkeypatch, scope)
     assert placed.get("/export_sidb_layout").status_code == 200
 
 
-def test_sidb_design_requires_native_timeout(placed, monkeypatch):
-    monkeypatch.setattr(designer.sidb_design.fiction, "on_the_fly_sidb_circuit_design_params", object)
+def test_sidb_design_requires_native_api(placed, monkeypatch):
+    monkeypatch.setattr(designer.sidb_design.generators, "on_the_fly_sidb_circuit_design", None)
     assert not designer.sidb_design.available()
     assert placed.post("/design_sidb_layout", json={}).status_code == 503
 
@@ -311,8 +307,8 @@ def test_oversized_uploads_rejected_before_parsing(placed, monkeypatch, route, e
         pytest.fail("Oversized requests must be rejected before file streams or native parsing")
 
     monkeypatch.setattr(designer.app.request_class, "_get_file_stream", unexpected_parse)
-    monkeypatch.setattr(designer, "read_cartesian_fgl_layout", unexpected_parse)
-    monkeypatch.setattr(designer, "read_technology_network", unexpected_parse)
+    monkeypatch.setattr(designer, "read_fgl_layout", unexpected_parse)
+    monkeypatch.setattr(designer, "read_network", unexpected_parse)
     if route == "/save_verilog_code":
         response = placed.post(route, json={"code": "x" * 2048})
     else:
@@ -392,6 +388,7 @@ def test_partial_crossing_roundtrip_preserves_routing(client, gate_type, reverse
     assert crossing_type() == gate_type
     assert client.get("/").status_code == 200  # Reload before either output exists.
     assert crossing_type() == gate_type
+    partial = client.get("/export_layout").data
 
     for index, (x, y) in enumerate(((2, 1), (1, 2))):
         params = {"first": {"position": {"x": 1, "y": 1}, "gate_type": crossing_type()}}
@@ -416,13 +413,7 @@ def test_partial_crossing_roundtrip_preserves_routing(client, gate_type, reverse
             )
 
     completed = client.get("/export_layout").data
-    # Native FGL export omits dangling gates, but imported FGL can explicitly contain them.
-    partial = ElementTree.fromstring(completed)
-    gates = partial.find("gates")
-    for gate in list(gates):
-        if gate.findtext("type") != "PI" and (gate.findtext("loc/x"), gate.findtext("loc/y")) != ("1", "1"):
-            gates.remove(gate)
-    import_fgl(ElementTree.tostring(partial))
+    import_fgl(partial)
     for swapped_layers in (False, True):
         content = ElementTree.fromstring(completed)
         if swapped_layers:  # Complete external FGL crossings can use the opposite layer convention.
@@ -434,16 +425,16 @@ def test_partial_crossing_roundtrip_preserves_routing(client, gate_type, reverse
             layout = designer.layouts[session["session_id"]]
         expected = [(0, 1), (1, 0)] if gate_type == "bufc" else [(1, 0), (0, 1)]
         for target, origin in zip(((2, 1), (1, 2)), expected, strict=True):
-            wire = next(tile for tile in layout.fanins(target) if (tile.x, tile.y) == (1, 1))
-            source = layout.fanins(wire)[0]
+            wire = next(tile for tile in designer._fanin_tiles(layout, target) if (tile.x, tile.y) == (1, 1))
+            source = designer._fanin_tiles(layout, wire)[0]
             assert (source.x, source.y) == origin
 
 
 def test_move_crossing_preserves_native_layer_order(client):
-    layout = designer.cartesian_obstruction_layout(designer.cartesian_gate_layout((3, 3, 1), "2DDWave", "Layout"))
+    layout = designer.cartesian_gate_layout((4, 4, 2), "2DDWave", "Layout")
     for z in (0, 1):
         layout.create_buf(layout.create_pi("", (z, 0)), (1, 1, z))
-    nodes = [layout.get_node((1, 1, z)) for z in (0, 1)]
+    nodes = [layout.find_object((1, 1, z)) for z in (0, 1)]
     with client.session_transaction() as session:
         designer.layouts[session["session_id"]] = layout
     post(
@@ -458,30 +449,39 @@ def test_move_crossing_preserves_native_layer_order(client):
         },
         success=False,
     )
-    assert [layout.get_node((1, 1, z)) for z in (0, 1)] == nodes
+    assert [layout.find_object((1, 1, z)) for z in (0, 1)] == nodes
     post(client, "/move_gate", {"source_x": 1, "source_y": 1, "source_gate_type": "bufc", "target_x": 2, "target_y": 2})
-    assert [layout.get_node((2, 2, z)) for z in (0, 1)] == nodes
-    assert not layout.fanins((2, 2, 0)) and not layout.fanins((2, 2, 1))
+    assert [layout.find_object((2, 2, z)) for z in (0, 1)] == nodes
+    assert not designer._fanin_tiles(layout, (2, 2, 0)) and not designer._fanin_tiles(layout, (2, 2, 1))
     assert client.get("/get_layout").get_json()["success"]
 
 
-def test_upper_only_wire_roundtrip_move_connect_and_delete(client):
-    layout = designer.cartesian_obstruction_layout(designer.cartesian_gate_layout((3, 2, 1), "2DDWave", "Layout"))
-    layout.create_pi("a", (0, 0))
-    wire = layout.create_buf(layout.create_pi("b", (0, 1)), (1, 1, 1))
-    layout.create_po(wire, "y", (2, 1))
-    with client.session_transaction() as session:
-        session_id = session["session_id"]
-        designer.layouts[session_id] = layout
-    original = client.get("/get_layout").get_json()
-    upper = next(gate for gate in original["gates"] if (gate["x"], gate["y"]) == (1, 1))
-    assert upper["type"] == "buf" and upper["connections"] == [{"sourceX": 0, "sourceY": 1}]
-    content = client.get("/export_layout").data
+def test_legacy_upper_only_wire_import_move_connect_and_delete(client):
+    content = b"""<fgl>
+      <layout><name>Layout</name><topology>cartesian</topology>
+        <size><x>3</x><y>2</y><z>1</z></size><clocking><name>2DDWave</name></clocking></layout>
+      <gates>
+        <gate><id>0</id><type>PI</type><name>a</name><loc><x>0</x><y>0</y><z>0</z></loc></gate>
+        <gate><id>1</id><type>PI</type><name>b</name><loc><x>0</x><y>1</y><z>0</z></loc></gate>
+        <gate><id>2</id><type>BUF</type><loc><x>1</x><y>1</y><z>1</z></loc>
+          <incoming><signal><x>0</x><y>1</y><z>0</z></signal></incoming></gate>
+        <gate><id>3</id><type>PO</type><name>y</name><loc><x>2</x><y>1</y><z>0</z></loc>
+          <incoming><signal><x>1</x><y>1</y><z>1</z></signal></incoming></gate>
+      </gates></fgl>"""
     response = client.post("/import_layout", data={"file": (io.BytesIO(content), "upper.fgl")})
     assert response.get_json()["success"]
+    with client.session_transaction() as session:
+        session_id = session["session_id"]
+    original = client.get("/get_layout").get_json()
+    assert original["layoutDimensions"] == {"x": 4, "y": 3}
+    upper = next(gate for gate in original["gates"] if (gate["x"], gate["y"]) == (1, 1))
+    assert upper["type"] == "buf" and upper["connections"] == [{"sourceX": 0, "sourceY": 1}]
+    assert client.get("/export_layout").status_code == 422  # FGL v2 rejects physically invalid crossings.
+    assert client.post("/design_sidb_layout", json={}).status_code == 422
+    assert not designer.sidb_design_lock.locked()
     assert client.get("/get_layout").get_json() == original
     layout = designer.layouts[session_id]
-    wire_node = layout.get_node((1, 1, 1))
+    wire_node = layout.find_object((1, 1, 1))
     post(client, "/place_gate", {"x": 1, "y": 1, "gate_type": "pi", "params": {}}, success=False)
     assert client.get("/get_layout").get_json() == original
     post(
@@ -495,8 +495,8 @@ def test_upper_only_wire_roundtrip_move_connect_and_delete(client):
             "target_y": 0,
         },
     )
-    assert layout.get_node((1, 0, 1)) == wire_node and layout.is_empty_tile((1, 0, 0))
-    assert not layout.fanins((2, 1))
+    assert layout.find_object((1, 0, 1)) == wire_node and layout.is_empty_tile((1, 0, 0))
+    assert not designer._fanin_tiles(layout, (2, 1))
     post(
         client,
         "/connect_gates",
@@ -510,7 +510,7 @@ def test_upper_only_wire_roundtrip_move_connect_and_delete(client):
             "find_path": False,
         },
     )
-    assert [(tile.x, tile.y, tile.z) for tile in layout.fanins((1, 0, 1))] == [(0, 0, 0)]
+    assert [(tile.x, tile.y, tile.z) for tile in designer._fanin_tiles(layout, (1, 0, 1))] == [(0, 0, 0)]
     post(
         client,
         "/move_gate",
@@ -535,16 +535,16 @@ def test_upper_only_wire_roundtrip_move_connect_and_delete(client):
             "find_path": False,
         },
     )
-    assert [(tile.x, tile.y, tile.z) for tile in layout.fanins((2, 0))] == [(1, 0, 1)]
+    assert [(tile.x, tile.y, tile.z) for tile in designer._fanin_tiles(layout, (2, 0))] == [(1, 0, 1)]
     post(client, "/delete_gate", {"x": 1, "y": 0})
-    assert layout.is_empty_tile((1, 0, 1)) and not layout.fanins((2, 0))
-    assert layout.is_pi(layout.get_node((0, 0))) and layout.is_pi(layout.get_node((0, 1)))
+    assert layout.is_empty_tile((1, 0, 1)) and not designer._fanin_tiles(layout, (2, 0))
+    assert layout.is_pi(layout.find_object((0, 0))) and layout.is_pi(layout.find_object((0, 1)))
     assert len(client.get("/get_layout").get_json()["gates"]) == 3
 
 
 @pytest.mark.parametrize("consumer,upper_key", [("buf", "first"), ("and", "first"), ("and", "second")])
 def test_upper_only_wire_feeds_new_consumers(client, consumer, upper_key):
-    layout = designer.cartesian_obstruction_layout(designer.cartesian_gate_layout((2, 2, 1), "2DDWave", "Layout"))
+    layout = designer.cartesian_gate_layout((3, 3, 2), "2DDWave", "Layout")
     layout.create_buf(layout.create_pi("a", (0, 1)), (1, 1, 1))
     layout.create_pi("b", (2, 0))
     with client.session_transaction() as session:
@@ -556,7 +556,7 @@ def test_upper_only_wire_feeds_new_consumers(client, consumer, upper_key):
             "gate_type": "pi",
         }
     post(client, "/place_gate", {"x": 2, "y": 1, "gate_type": consumer, "params": params})
-    assert (1, 1, 1) in [(tile.x, tile.y, tile.z) for tile in layout.fanins((2, 1))]
+    assert (1, 1, 1) in [(tile.x, tile.y, tile.z) for tile in designer._fanin_tiles(layout, (2, 1))]
     original = client.get("/get_layout").get_json()
     post(
         client,
@@ -576,9 +576,9 @@ def test_upper_only_wire_feeds_new_consumers(client, consumer, upper_key):
 def test_gold_forwards_multithreading(placed, monkeypatch, multithreading):
     run_gold = designer.graph_oriented_layout_design
 
-    def capture(network, params):
-        assert params.enable_multithreading is multithreading
-        return run_gold(network, params)
+    def capture(network, **params):
+        assert params["enable_multithreading"] is multithreading
+        return run_gold(network, **params)
 
     monkeypatch.setattr(designer, "graph_oriented_layout_design", capture)
     result = post(
@@ -598,29 +598,63 @@ def test_gold_forwards_multithreading(placed, monkeypatch, multithreading):
 
 
 def test_zero_relocations_is_forwarded(placed, monkeypatch):
-    def capture(layout, params):
-        assert params.max_gate_relocations == 0
+    def capture(layout, **params):
+        assert params["max_gate_relocations"] == 0
 
     monkeypatch.setattr(designer, "post_layout_optimization", capture)
     post(placed, "/apply_optimization", {"timeout": 1000, "max_gate_relocations": 0})
 
 
-def test_exact_defaults_and_unavailable_solver(placed, monkeypatch):
-    if designer.exact_params is not None:
-        defaults = designer.exact_params()
+@pytest.mark.parametrize("find_path", [False, True])
+def test_reconnect_preserves_other_input_slot(client, find_path):
+    layout = designer.cartesian_gate_layout((4, 4, 2), "2DDWave")
+    first = layout.create_pi("a", (0, 2))
+    second = layout.create_pi("b", (2, 0))
+    gate = layout.create_and(first, second, (2, 2))
+    with client.session_transaction() as session:
+        designer.layouts[session["session_id"]] = layout
+    post(client, "/delete_gate", {"x": 0, "y": 2})
+    assert layout.inputs(gate) == [None, second]
+    post(client, "/place_gate", {"x": 0, "y": 2, "gate_type": "pi", "params": {}})
+    post(
+        client,
+        "/connect_gates",
+        {
+            "source_x": 0,
+            "source_y": 2,
+            "source_gate_type": "pi",
+            "target_x": 2,
+            "target_y": 2,
+            "target_gate_type": "and",
+            "find_path": find_path,
+        },
+    )
+    inputs = layout.inputs(gate)
+    assert inputs[0] is not None and inputs[1] == second
+    assert layout.get_tile(inputs[0]) == ((1, 2) if find_path else (0, 2))
 
-        def capture(network, params):
-            assert params.upper_bound_x == defaults.upper_bound_x
-            assert params.upper_bound_y == defaults.upper_bound_y
+
+def test_exact_native_keyword_api(placed):
+    if designer.exact is None:
+        pytest.skip("Pyfiction was built without Exact")
+    assert post(placed, "/apply_exact", {"upper_bound_x": 4, "upper_bound_y": 4, "timeout": 1000})["gates"]
+    assert post(placed, "/check_equivalence")["equivalence"] in {"STRONG", "WEAK"}
+
+
+def test_exact_defaults_and_unavailable_solver(placed, monkeypatch):
+    if designer.exact is not None:
+
+        def capture(network, **params):
+            assert "upper_bound_x" not in params
+            assert "upper_bound_y" not in params
             return designer.orthogonal(network)
 
-        monkeypatch.setattr(designer, "exact_cartesian", capture)
+        monkeypatch.setattr(designer, "exact", capture)
         assert post(placed, "/apply_exact", {"timeout": 1000})["gates"]
         response = placed.post("/apply_exact", json=[1])
         assert response.status_code == 400
         assert "JSON object" in response.get_json()["error"]
-    monkeypatch.setattr(designer, "exact_params", None)
-    monkeypatch.setattr(designer, "exact_cartesian", None)
+    monkeypatch.setattr(designer, "exact", None)
     assert "Z3" in post(placed, "/apply_exact", success=False)["error"]
 
 
@@ -634,15 +668,15 @@ def test_exact_defaults_and_unavailable_solver(placed, monkeypatch):
     ],
 )
 def test_exact_requires_positive_native_range_integers(placed, monkeypatch, field, maximum):
-    if designer.exact_params is None:
-        pytest.skip("Pyfiction was built without Exact parameters")
+    if designer.exact is None:
+        pytest.skip("Pyfiction was built without Exact")
     original = placed.get("/get_layout").get_json()
 
-    def capture(network, params):
-        assert getattr(params, field) == maximum
+    def capture(network, **params):
+        assert params[field] == maximum
         return designer.orthogonal(network)
 
-    monkeypatch.setattr(designer, "exact_cartesian", capture)
+    monkeypatch.setattr(designer, "exact", capture)
     for invalid in (0, -1, True, False, 1.5, 1.0, "1", None, maximum + 1):
         response = placed.post("/apply_exact", json={field: invalid})
         assert response.status_code == 400, (field, invalid, response.get_json())
