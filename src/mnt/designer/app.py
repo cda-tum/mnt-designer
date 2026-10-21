@@ -61,6 +61,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("MNT_DESIGNER_SECRET_KEY") or secrets.token_hex(32)
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # Entire request, including multipart overhead.
+app.config["TRUSTED_HOSTS"] = ["localhost", "127.0.0.1", "[::1]"] + [
+    host.strip() for host in os.environ.get("MNT_DESIGNER_TRUSTED_HOSTS", "").split(",") if host.strip()
+]
 
 # Layouts and networks are process-local; use a single worker for hosted instances.
 layouts = {}
@@ -73,6 +76,26 @@ verilogs = {}
 
 # The server uses one worker; run at most one native gate search at a time.
 sidb_design_lock = threading.Lock()
+
+
+@app.before_request
+def protect_requests():
+    if request.method == "POST":
+        expected = session.get("csrf_token", "")
+        supplied = request.headers.get("X-CSRF-Token", "")
+        if not expected or not secrets.compare_digest(supplied.encode(), expected.encode()):
+            return jsonify({"success": False, "error": "Reload this page before changing the design."}), 403
+    return None
+
+
+@app.after_request
+def security_headers(response):
+    response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    if request.endpoint != "static":
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.errorhandler(RequestEntityTooLarge)
@@ -90,6 +113,8 @@ def index():
     # Assign a unique session ID if not already present
     if "session_id" not in session:
         session["session_id"] = str(uuid.uuid4())
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_urlsafe(32)
     return render_template(
         "index.html",
         sidb_gate_design_available=sidb_design.available(),
@@ -1721,70 +1746,72 @@ def get_layout_information(layout):
     layout_dimensions = {"x": layout.x() + 1, "y": layout.y() + 1}
     gates = []
 
-    for x in range(layout.x() + 1):
-        for y in range(layout.y() + 1):
-            z = _gate_layer(layout, x, y)
-            node = layout.get_node((x, y, z))
-            name = ""
-            if node:
-                if layout.is_pi(node):
-                    gate_type = "pi"
-                    try:
-                        name = layout.get_name(layout.make_signal(node))
-                    except Exception:
-                        name = ""
-                elif layout.is_po(node):
-                    gate_type = "po"
-                    try:
-                        name = layout.get_name(layout.make_signal(node))
-                    except Exception:
-                        name = ""
-                elif layout.is_wire(node):
-                    gate_type = "buf"
-                    above_gate = layout.above(layout.get_tile(node))
-                    if z == 0 and layout.z() == 1 and not layout.is_empty_tile(above_gate):
-                        gate_type = _crossing_type(layout, x, y)
-                    if layout.fanout_size(node) == 2:
-                        gate_type = "fanout"
-                elif layout.is_inv(node):
-                    gate_type = "inv"
-                elif layout.is_and(node):
-                    gate_type = "and"
-                elif layout.is_nand(node):
-                    gate_type = "nand"
-                elif layout.is_or(node):
-                    gate_type = "or"
-                elif layout.is_nor(node):
-                    gate_type = "nor"
-                elif layout.is_xor(node):
-                    gate_type = "xor"
-                elif layout.is_xnor(node):
-                    gate_type = "xnor"
-                else:
-                    raise Exception("Unsupported gate type")
+    tiles = {(tile.x, tile.y) for tile in (*layout.pis(), *layout.gates())}
+    for x, y in sorted(tiles):
+        z = _gate_layer(layout, x, y)
+        node = layout.get_node((x, y, z))
+        name = ""
+        if node:
+            if layout.is_pi(node):
+                gate_type = "pi"
+                try:
+                    name = layout.get_name(layout.make_signal(node))
+                except Exception:
+                    name = ""
+            elif layout.is_po(node):
+                gate_type = "po"
+                try:
+                    name = layout.get_name(layout.make_signal(node))
+                except Exception:
+                    name = ""
+            elif layout.is_wire(node):
+                gate_type = "buf"
+                above_gate = layout.above(layout.get_tile(node))
+                if z == 0 and layout.z() == 1 and not layout.is_empty_tile(above_gate):
+                    gate_type = _crossing_type(layout, x, y)
+                if layout.fanout_size(node) == 2:
+                    gate_type = "fanout"
+            elif layout.is_inv(node):
+                gate_type = "inv"
+            elif layout.is_and(node):
+                gate_type = "and"
+            elif layout.is_nand(node):
+                gate_type = "nand"
+            elif layout.is_or(node):
+                gate_type = "or"
+            elif layout.is_nor(node):
+                gate_type = "nor"
+            elif layout.is_xor(node):
+                gate_type = "xor"
+            elif layout.is_xnor(node):
+                gate_type = "xnor"
+            else:
+                raise Exception("Unsupported gate type")
 
-                gate_info = {
-                    "x": x,
-                    "y": y,
-                    "type": gate_type,
-                    "connections": [],
-                    "name": name,
-                }
-                # Get fanins (source nodes)
-                fanins = layout.fanins((x, y, z))
+            gate_info = {
+                "x": x,
+                "y": y,
+                "type": gate_type,
+                "connections": [],
+                "name": name,
+            }
+            # Get fanins (source nodes)
+            fanins = layout.fanins((x, y, z))
+            for fin in fanins:
+                gate_info["connections"].append({"sourceX": fin.x, "sourceY": fin.y})
+            if gate_type in ("bufc", "bufk"):
+                fanins = layout.fanins((x, y, 1))
                 for fin in fanins:
                     gate_info["connections"].append({"sourceX": fin.x, "sourceY": fin.y})
-                if gate_type in ("bufc", "bufk"):
-                    fanins = layout.fanins((x, y, 1))
-                    for fin in fanins:
-                        gate_info["connections"].append({"sourceX": fin.x, "sourceY": fin.y})
-                gates.append(gate_info)
+            gates.append(gate_info)
     return layout_dimensions, gates
 
 
 def start_server(host: str = "127.0.0.1", port: int = 5001, open_browser: bool = True) -> None:
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
     url_host = f"[{host}]" if ":" in host else host
+    if host not in {"0.0.0.0", "::"} and url_host not in app.config["TRUSTED_HOSTS"]:
+        app.config["TRUSTED_HOSTS"] = [*app.config["TRUSTED_HOSTS"], url_host]
     url = f"http://{url_host}:{port}"
     print(
         f"Server is hosted at: {url}.",

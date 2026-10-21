@@ -121,6 +121,13 @@ The built-in server is intended for local use and binds to loopback by default. 
 server with `mnt.designer.app:app` and **one worker process**: layouts and logic networks are held in process-local memory,
 not shared between workers, and are lost when the server restarts. Export work you want to keep.
 
+Only loopback hostnames are accepted by default. An explicit non-wildcard `--host` is also accepted. For a reverse proxy
+or wildcard bind, set `MNT_DESIGNER_TRUSTED_HOSTS` to the comma-separated public hostnames (for example,
+`designer.example.org`), and preserve the original Host header. This blocks requests using unrelated hostnames.
+The frontend sends a session-bound token on every POST; scripts must first GET `/`, retain its session cookie, and send
+the page's `csrf-token` value in `X-CSRF-Token`. These protections are not authentication: restrict access to hosted
+instances at the reverse proxy. Design pages and downloads are not cached, and embedding Designer in an iframe is blocked.
+
 Request-body reads are limited to 5 MiB, including multipart upload overhead, before native layout or Verilog parsing.
 Rejected imports and editor saves leave the current layout and code unchanged. Configure a matching request-size limit
 in your reverse proxy when hosting Designer, including for streamed requests without a content length.

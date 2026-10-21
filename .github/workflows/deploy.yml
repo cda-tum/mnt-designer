@@ -27,14 +27,15 @@ jobs:
   quality:
     name: Quality checks
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
       - &refresh-certificates
         name: Refresh system certificates
         run: |
-          sudo apt-get update
-          sudo apt-get install --only-upgrade --yes ca-certificates
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install --only-upgrade --yes ca-certificates
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -54,6 +55,7 @@ jobs:
   build_wheel:
     name: Build wheel
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -91,6 +93,7 @@ jobs:
   build_sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -125,7 +128,11 @@ jobs:
 
   sidb_integration:
     name: Optional SiDB gate design
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      UV_CACHE_DIR: /tmp/uv-cache
+      CMAKE_BUILD_PARALLEL_LEVEL: "2"
     permissions:
       contents: read
     steps:
@@ -135,22 +142,45 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        id: python
         with:
           python-version: "3.13"
       - *bootstrap-pip
-      - name: Install timeout-enabled pyfiction and test Designer
-        env:
-          CMAKE_BUILD_PARALLEL_LEVEL: "2"
+      - name: Install uv
+        run: python -m pip install "uv>=0.13.4"
+      # Reuse compiled dependencies, never an installed environment or Designer itself.
+      # The workflow hash also invalidates the cache when build flags or tooling change.
+      - name: Restore native build cache
+        id: native-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: sidb-ubuntu-24.04-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('requirements-sidb-design.txt', 'pyproject.toml', '.github/workflows/deploy.yml') }}
+      - name: Install timeout-enabled pyfiction and Designer
+        timeout-minutes: 15
+        run: uv pip install --python "$(command -v python)" --override requirements-sidb-design.txt -e '.[test]'
+      - name: Verify native bindings
+        run: python -c "from mnt.designer.sidb_design import available; assert available(), 'Native SiDB timeout API is missing'"
+      - name: Minimize native build cache
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        run: uv cache prune --ci
+      # A later test failure must not discard a successfully compiled dependency.
+      - name: Save native build cache
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: ${{ steps.native-cache.outputs.cache-primary-key }}
+      - name: Test Designer with native SiDB support
+        timeout-minutes: 5
         run: |
-          python -m pip install "uv>=0.13.4"
-          uv pip install --python "$(command -v python)" --override requirements-sidb-design.txt -e '.[test]'
-          python -c "from mnt.designer.sidb_design import available; assert available(), 'Native SiDB timeout API is missing'"
-          python -m pytest
+          python -m pytest --durations=10
 
   upload_pypi:
     if: github.event_name == 'release' && github.event.action == 'published'
     name: 🚀 Deploy to PyPI
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: pypi
       url: https://pypi.org/p/mnt.designer

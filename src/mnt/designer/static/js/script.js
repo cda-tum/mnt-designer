@@ -1,4 +1,10 @@
 $(document).ready(() => {
+  const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+  $.ajaxPrefilter((options, _original, xhr) => {
+    if (!options.crossDomain && options.type.toUpperCase() === "POST") {
+      xhr.setRequestHeader("X-CSRF-Token", csrfToken);
+    }
+  });
   // Do not let Ace retry a blocked startup module through its unchecked lazy loader.
   if (typeof ace === "undefined" || !ace.require("ace/theme/chrome") || !ace.require("ace/mode/verilog")) {
     updateMessageArea("The code editor could not be loaded securely. Please reload the page.", "danger");
@@ -2269,7 +2275,7 @@ endmodule
     try {
       await downloadLayout("/design_sidb_layout", filename, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
         body: JSON.stringify(params),
       });
       updateMessageArea(`Download started: ${filename}. Your current layout was not replaced.`, "success");
