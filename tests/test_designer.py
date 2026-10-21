@@ -173,6 +173,15 @@ def test_exports_and_fgl_roundtrip(placed, tmp_path, monkeypatch):
 @pytest.mark.parametrize("export_format", ["svg", "sqd"])
 @requires_sidb_design
 def test_sidb_circuit_design_exports_snapshot(placed, export_format):
+    # Exercise real native AND design without repeatedly searching for routing gates.
+    # Orthogonal synthesis is covered by test_design_workflow.
+    layout = designer.cartesian_gate_layout((2, 2, 0), "2DDWave")
+    first = layout.create_pi("a", (0, 1, 0))
+    second = layout.create_pi("b", (1, 0, 0))
+    gate = layout.create_and(first, second, (1, 1, 0))
+    layout.create_po(gate, "y", (2, 1, 0))
+    with placed.session_transaction() as session:
+        designer.layouts[session["session_id"]] = layout
     original = placed.get("/get_layout").get_json()
     settings = {"export_format": export_format}
     if export_format == "sqd":
