@@ -8,7 +8,17 @@ const source = fs.readFileSync(path.join(__dirname, "../src/mnt/designer/static/
 const startupCode = source.slice(0, source.indexOf("  let selectedGateType")) + "globalThis.started = true; });";
 for (const missing of ["ace", "ace/theme/chrome", "ace/mode/verilog", null]) {
   const startup = {
-    document: {}, $: () => ({ ready: (callback) => callback() }), started: false,
+    document: { querySelector: () => ({ content: "session-token" }) },
+    $: Object.assign(() => ({ ready: (callback) => callback() }), {
+      ajaxPrefilter(callback) {
+        for (const [type, crossDomain, expected] of [["POST", false, 1], ["GET", false, 0], ["POST", true, 0]]) {
+          const headers = [];
+          callback({ type, crossDomain }, {}, { setRequestHeader: (...args) => headers.push(args) });
+          assert.equal(headers.length, expected);
+          if (expected) assert.deepEqual(headers[0], ["X-CSRF-Token", "session-token"]);
+        }
+      },
+    }), started: false,
     ace: missing === "ace" ? undefined : { require: (name) => name !== missing },
     updateMessageArea(_message, type) { assert.equal(type, "danger"); },
   };
@@ -257,6 +267,7 @@ context.subject.replaceEditorCode("unsaved circuit");
   let submit, validatePositive, formValid = false, running = false, finishRequest, feedback;
   const form = { reportValidity: () => formValid, querySelectorAll: () => controls };
   const gateDesign = {
+    csrfToken: "session-token",
     $: (selector) => ({
       on(_event, callback) {
         if (selector === "#sidb-gate-design-form") submit = callback;
@@ -278,6 +289,7 @@ context.subject.replaceEditorCode("unsaved circuit");
       assert.equal(route, "/design_sidb_layout");
       assert.equal(options.method, "POST");
       assert.equal(options.headers["Content-Type"], "application/json");
+      assert.equal(options.headers["X-CSRF-Token"], "session-token");
       requests.push(JSON.parse(options.body));
       return new Promise((resolve) => { finishRequest = resolve; });
     },

@@ -1,6 +1,7 @@
 """Small end-to-end checks against the installed pyfiction bindings."""
 
 import io
+import re
 import struct
 import subprocess
 import sys
@@ -35,8 +36,69 @@ def client(monkeypatch):
     for name in ("layouts", "networks", "verilogs"):
         monkeypatch.setattr(designer, name, {})
     with designer.app.test_client() as client:
-        assert client.get("/").status_code == 200
+        authorize(client)
         yield client
+
+
+def authorize(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    token = re.search(r'name="csrf-token" content="([^"]+)"', response.get_data(as_text=True))[1]
+    client.environ_base["HTTP_X_CSRF_TOKEN"] = token
+    return token
+
+
+@pytest.mark.parametrize("route", ["/reset_editor", "/reset_layout", "/import_layout", "/design_sidb_layout"])
+@pytest.mark.parametrize("token", ["", "wrong", "é"])
+def test_mutations_require_the_session_token(placed, route, token):
+    original = placed.get("/get_layout").get_json()
+    response = placed.post(route, headers={"X-CSRF-Token": token}, data={})
+    assert response.status_code == 403
+    assert response.get_json()["success"] is False
+    assert placed.get("/get_layout").get_json() == original
+    assert placed.get("/get_verilog_code").get_json()["code"] == VERILOG
+
+
+def test_token_is_session_bound_and_survives_reload(client):
+    token = client.environ_base["HTTP_X_CSRF_TOKEN"]
+    assert authorize(client) == token
+    other = designer.app.test_client()
+    assert authorize(other) != token
+    assert other.post("/reset_editor", headers={"X-CSRF-Token": token}).status_code == 403
+    assert other.post("/reset_editor").get_json()["success"]
+
+
+def test_host_and_browser_headers(client, monkeypatch):
+    assert client.get("/", base_url="http://attacker.example").status_code == 400
+    assert client.post("/reset_layout", base_url="http://attacker.example", json={}).status_code in {400, 403}
+    monkeypatch.setitem(designer.app.config, "TRUSTED_HOSTS", ["designer.example"])
+    page = client.get("/", base_url="https://designer.example")
+    assert page.status_code == 200
+    assert page.headers["Cache-Control"] == "no-store"
+    assert page.headers["Content-Security-Policy"] == "frame-ancestors 'none'"
+    assert page.headers["X-Frame-Options"] == "DENY"
+    assert page.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_sparse_layout_does_not_scan_empty_tiles(monkeypatch):
+    layout = designer.cartesian_gate_layout((100, 100, 1), "2DDWave")
+    pi = layout.create_pi("a", (0, 0, 0))
+    wire = layout.create_buf(pi, (1, 0, 0))
+    gate = layout.create_not(wire, (1, 1, 0))
+    layout.create_po(gate, "y", (2, 1, 0))
+    gate_layer = designer._gate_layer
+    visited = []
+
+    def bounded_gate_layer(layout, x, y):
+        visited.append((x, y))
+        assert len(visited) <= 4, "Empty layout tiles must not be scanned"
+        return gate_layer(layout, x, y)
+
+    monkeypatch.setattr(designer, "_gate_layer", bounded_gate_layer)
+    dimensions, gates = designer.get_layout_information(layout)
+    assert dimensions == {"x": 101, "y": 101}
+    assert visited == [(0, 0), (1, 0), (1, 1), (2, 1)]
+    assert [gate["type"] for gate in gates] == ["pi", "buf", "inv", "po"]
 
 
 def post(client, route, payload=None, *, success=True):
@@ -263,6 +325,8 @@ def test_sidb_design_missing_capability_layout_and_busy(placed, monkeypatch):
     assert placed.post("/design_sidb_layout", json={}).status_code == 503
     monkeypatch.setattr(designer.sidb_design, "available", lambda: True)
     with designer.app.test_client() as other:
+        assert other.post("/design_sidb_layout", json={}).status_code == 403
+        authorize(other)
         assert other.post("/design_sidb_layout", json={}).status_code == 400
     with designer.sidb_design_lock:
         assert placed.post("/design_sidb_layout", json={}).status_code == 409
@@ -335,7 +399,7 @@ def test_sidb_design_failure_releases_lock_and_preserves_layout(placed, monkeypa
 
 def test_missing_layout_exports_and_session_isolation(placed):
     other = designer.app.test_client()
-    assert other.get("/").status_code == 200
+    authorize(other)
     for route in EXPORTS:
         response = other.get(route)
         assert response.status_code < 500
