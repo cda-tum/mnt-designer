@@ -23,7 +23,8 @@ jobs:
       pull-requests: read
     runs-on: ubuntu-latest
     steps:
-      - name: Refresh system certificates
+      - &refresh-certificates
+        name: Refresh system certificates
         run: |
           sudo apt-get update
           sudo apt-get install --only-upgrade --yes ca-certificates
@@ -36,8 +37,5 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - name: Refresh system certificates
-        run: |
-          sudo apt-get update
-          sudo apt-get install --only-upgrade --yes ca-certificates
+      - *refresh-certificates
       - uses: release-drafter/release-drafter/autolabeler@978bb0b30c5ee8cdd332ced253758157150d43f0 # v7.10.0
