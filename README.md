@@ -193,3 +193,21 @@ In case you are using MNT Designer in your work, we would be thankful if you ref
 
 [ruff-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
 [ruff-link]: https://github.com/astral-sh/ruff
+
+## Installation, browser, and dependency checks
+
+CI smoke-tests built wheels on macOS ARM and Windows x64 with Python 3.13; the existing Linux jobs cover the
+minimum and maximum supported Python versions. One Chromium workflow checks the real interface, and a separate
+job audits freshly resolved runtime dependencies (including transitive dependencies) with `pip-audit` on PRs,
+main, and weekly. Browser failure traces are retained for seven days; these tests use temporary data only.
+
+To run the browser check locally after creating the development environment:
+
+```console
+uv pip install --python .venv pytest-playwright
+uv run --no-project --python .venv python -m playwright install chromium
+uv run --no-project --python .venv python -m pytest tests/browser_smoke.py
+```
+
+The browser test imports Verilog, edits it, creates an orthogonal layout, and downloads the FGL file.
+It needs network access to the same integrity-pinned frontend assets as the application.
