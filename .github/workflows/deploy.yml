@@ -1,4 +1,4 @@
-name: Deploy to PyPI
+name: 🧪 CI · Build & test
 
 on:
   release:
@@ -153,7 +153,6 @@ jobs:
     timeout-minutes: 20
     env:
       UV_CACHE_DIR: /tmp/uv-cache
-      CMAKE_BUILD_PARALLEL_LEVEL: "2"
     permissions:
       contents: read
     steps:
@@ -168,22 +167,23 @@ jobs:
           python-version: "3.13"
       - *bootstrap-pip
       - name: Set up uv
+        id: uv
         uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version: "0.13.5"
           # The native dependency cache below is saved before the tests run.
           enable-cache: false
       # Reuse compiled dependencies, never an installed environment or Designer itself.
-      # The workflow hash also invalidates the cache when build flags or tooling change.
+      # Hash the build recipe and tooling, not unrelated workflow labels or jobs.
       - name: Restore native build cache
         id: native-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.UV_CACHE_DIR }}
-          key: sidb-ubuntu-24.04-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('requirements-sidb-design.txt', 'pyproject.toml', '.github/workflows/deploy.yml') }}
+          key: sidb-v2-ubuntu-24.04-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-uv${{ steps.uv.outputs.uv-version }}-${{ hashFiles('requirements-sidb-design.txt', 'pyproject.toml', '.github/scripts/install-sidb-dependencies.sh') }}
       - name: Install timeout-enabled pyfiction and Designer
         timeout-minutes: 15
-        run: uv pip install --python "$(command -v python)" --override requirements-sidb-design.txt -e '.[test]'
+        run: bash .github/scripts/install-sidb-dependencies.sh
       - name: Verify native bindings
         run: python -c "from mnt.designer.sidb_design import available; assert available(), 'Native SiDB timeout API is missing'"
       - name: Minimize native build cache
