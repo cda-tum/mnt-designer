@@ -42,6 +42,32 @@ Related publication presented at DATE: [paper](https://www.cda.cit.tum.de/files/
 # Usage of MNT Designer
 
 MNT Designer supports Python 3.11–3.14 and uses the published [pyfiction](https://pypi.org/project/mnt.pyfiction/) 0.8.0 package.
+
+## Recommended: install with uv
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.13.5 or newer, then run:
+
+```console
+$ uv tool install --python 3.13 mnt.designer
+$ mnt-designer
+```
+
+uv manages an isolated environment; no activation is needed. It can download Python if it is missing, and the explicit
+Python version keeps the installation within the supported range. If `mnt-designer` is not on your PATH, run
+`uv tool update-shell` and restart your terminal. Update with `uv tool upgrade mnt.designer`.
+
+To try Designer without a persistent tool installation:
+
+```console
+$ uvx --python 3.13 --from mnt.designer mnt-designer
+```
+
+The first run downloads dependencies; later runs reuse uv's cache. Export layouts you want to keep before stopping the
+server with Ctrl+C. Tool environments are isolated: for Python imports or development, use the project environment
+described below instead.
+
+## Alternative: pip
+
 Create a virtual environment using your Python installation:
 
 ```console
@@ -69,10 +95,13 @@ $ mnt-designer --port 5053 --no-browser
 This optional feature needs a source build of pyfiction at
 [`509b20aa`](https://github.com/cda-tum/fiction/commit/509b20aa86e4fc24f71cad8f8d38eb5c4d72823c), the commit that introduced
 shared design timeouts. Standard installs use pyfiction 0.8.0 and provide all other tools, including Bestagon export.
-To enable gate design, clone this repository and run this in your virtual environment, then restart Designer:
+To enable gate design, clone this repository, create a separate Python 3.13 project environment, and launch Designer
+from that environment (not the standard `uv tool` installation):
 
 ```console
-$ uv pip install --override requirements-sidb-design.txt -e '.[test]'
+$ uv venv --python 3.13
+$ uv pip install --python .venv --override requirements-sidb-design.txt -e '.[test]'
+$ uv run --no-project --python .venv mnt-designer
 ```
 
 This opt-in build requires a C++20 compiler. The pin deliberately excludes later, incompatible Python API changes.
@@ -98,20 +127,24 @@ cloned before serialization when the search started.
 
 ## Development
 
-Clone the repository and install it in a Python 3.11+ virtual environment:
+Clone the repository and install it in an isolated project environment:
 
 ```console
 $ git clone https://github.com/cda-tum/mnt-designer.git
 $ cd mnt-designer
-$ python -m pip install -e '.[test]'
-$ python -m pytest
-$ mnt-designer
+$ uv venv --python 3.13
+$ uv pip install --python .venv -e '.[test]'
+$ uv run --no-project --python .venv python -m pytest
+$ uv run --no-project --python .venv mnt-designer
 ```
 
+Alternatively, activate a Python 3.11–3.14 virtual environment and use `python -m pip install -e '.[test]'`.
 The editable installation is needed to share the `mnt` namespace with pyfiction; setting `PYTHONPATH` alone is not sufficient.
 Run the repository checks with `pre-commit run --all-files` after installing [pre-commit](https://pre-commit.com/).
 
-Package CI tests the published pyfiction 0.8.0 dependency. A separate integration job builds the optional SiDB pin
+Package CI builds with uv and the existing setuptools backend, tests wheel installs with uv and source installs with pip,
+and checks both `uv tool install` and `uvx` against the published pyfiction 0.8.0 dependency. Publishing is unchanged.
+A separate integration job builds the optional SiDB pin
 and checks native gate design and timeout handling. The native gate-design tests skip when that capability is absent;
 the remaining tests run with either build.
 
